@@ -5,6 +5,7 @@ import robomodules as rm
 from messages import *
 from pacbot.variables import *
 from pacbot.grid import *
+import numpy as np
 
 ###### AI INPUT STUFF ########
 import random
@@ -62,6 +63,8 @@ class InputModule(rm.ProtoModule):
             if self.state.lives != self.lives:
                 self.lives = self.state.lives
                 self.pacbot_pos = [pacbot_starting_pos[0], pacbot_starting_pos[1]]
+        if msg_type == MsgType.LIGHT_STATE:
+            self.light_state = msg
 
     def tick(self):
         
@@ -79,8 +82,41 @@ class InputModule(rm.ProtoModule):
             except NameError:
                 newgrid = grid
 
+            # ghostPos = [(self.state.red_ghost.x, self.state.red_ghost.y),
+            #     (self.state.pink_ghost.x, self.state.pink_ghost.y),
+            #     (self.state.blue_ghost.x, self.state.blue_ghost.y),
+            #     (self.state.orange_ghost.x, self.state.orange_ghost.y)]
+            
+            ghosts = [self.state.red_ghost, self.state.pink_ghost, self.state.blue_ghost, self.state.orange_ghost]
+            # print(dir(self.state.red_ghost))
+            frightened = [ghost for ghost in ghosts if ghost.frightened_counter > 0]
 
-            outChar, newgrid = smarterInput.whichWayAStar(newgrid, self.pacbot_pos, self.state)
+            if len(frightened) != 0:
+                nonScared = [g for g in ghosts if not g.frightened_counter > 0]
+                frightenedPos = [(ghost.x, ghost.y) for ghost in frightened]
+                closestGhost = []
+                for p in frightenedPos:
+                    closestGhost.append(abs(self.pacbot_pos[0] - p[0]) + abs(self.pacbot_pos[1] - p[1]))
+                closestGhostIndex = np.argmin(closestGhost)
+                outChar, newgrid = smarterInput.whichWayAStar(newgrid, self.pacbot_pos, 
+                                                              self.state, frightenedPos, closestGhostIndex, nonScared)
+            else:
+                powerPos = [(1, 7), (1, 27), (26, 7), (26, 27)]
+                closestPower = []
+                for index in range(len(powerPos) -1, -1, -1):
+                    pos = powerPos[index]
+                    if grid[pos[0]][pos[1]] != e:
+                        closestPower.append(abs(self.pacbot_pos[0] - pos[0]) + abs(self.pacbot_pos[1] - pos[1]))
+                    else:
+                        powerPos.remove(pos)
+                closestPower.reverse()
+                
+                if len(closestPower) != 0:
+                    closestPowerIndex = np.argmin(closestPower)
+                    outChar, newgrid = smarterInput.whichWayAStar(newgrid, self.pacbot_pos, 
+                                                                self.state, powerPos, closestPowerIndex, ghosts)
+                else:
+                    outChar, newgrid = smarterInput.whichWayBFS(newgrid, self.pacbot_pos)
             print("dir: " + str(outChar))
             if outChar == 'a':
                 self.next_dir = left
