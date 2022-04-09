@@ -40,21 +40,21 @@ class Node:
             node = Node(self.grid, (x, y + 1), self.goalPos, newCost, self, self.ghostPos)
             self.neighbors.append(node)
         if self.grid[x][y - 1] not in [I, n]:
-            if self.grid[x][y + 1] in self.ghostPos: #Fix this
+            if self.grid[x][y - 1] in self.ghostPos: #Fix this
                 newCost = 9999
             else:
                 newCost += 1 + manhattanDist((x, y - 1), self.goalPos)
             node = Node(self.grid, (x, y - 1), self.goalPos, newCost, self, self.ghostPos)
             self.neighbors.append(node)
         if self.grid[x + 1][y] not in [I, n]:
-            if self.grid[x][y + 1] in self.ghostPos: #Fix this
+            if self.grid[x + 1][y] in self.ghostPos: #Fix this
                 newCost = 9999
             else:
                 newCost += 1 + manhattanDist((x + 1, y), self.goalPos)
             node = Node(self.grid, (x + 1, y), self.goalPos, newCost, self, self.ghostPos)
             self.neighbors.append(node)
         if self.grid[x - 1][y] not in [I, n]:
-            if self.grid[x][y + 1] in self.ghostPos: #Fix this
+            if self.grid[x - 1][y] in self.ghostPos: #Fix this
                 newCost = 9999
             else:
                 newCost += 1 + manhattanDist((x - 1, y), self.goalPos)

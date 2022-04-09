@@ -139,7 +139,8 @@ def whichWayAStar(grid, pacpos, state, goalPos, closestGoalIndex, ghosts):
     # closestPowerIndex = np.argmin(closestPower)
     # print('power pos', goalPos)
     # print('closest power', closestPowerIndex)
-    path = findClosestAStar(grid, x, y, goalPos[closestGoalIndex], ghostPos)
+    # path = findClosestAStar(grid, x, y, goalPos[closestGoalIndex], ghostPos)
+    path = findClosestAStar(grid, x, y, goalPos, ghostPos)
     print(path)
     # print("Closest goal is at: " + str(goalX) + ", " + str(goalY))
     # go to the dot at goalX, goalY
