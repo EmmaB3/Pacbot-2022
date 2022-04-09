@@ -1,0 +1,11 @@
+env
+dist
+*.egg-info
+*.pyc
+*.swp
+.coverage
+__pycache__
+.idea/
+.DS_Store
+**/.terraform*
+.vscode
