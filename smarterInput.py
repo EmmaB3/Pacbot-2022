@@ -92,15 +92,15 @@ def whichWayBFS(grid, pacpos):
 
     if grid[x][y] in [e]:
         print("already eaten!")
-    grid[x][y] = e
+
     if grid[x - 1][y] in [o, O]:
-        return 'a', grid
+        return 'a'
     elif grid[x][y + 1] in [o, O]:
-        return 'w', grid
+        return 'w'
     elif grid[x + 1][y] in [o, O]:
-        return 'd', grid
+        return 'd'
     elif grid[x][y - 1] in [o, O]:
-        return 's', grid
+        return 's'
     else:  # not immediately next to a dot, find the closest one
         print("\nsearching for a dot!!\n")
         # look through every dot in the grid, return the closest
@@ -111,22 +111,22 @@ def whichWayBFS(grid, pacpos):
         print("Next move is to: " + str(path[1]))
         print("Next move is to: " + str(path))
         if path[1][0] > x:  # we have to go right
-            return 'd', grid
+            return 'd',
         elif path[1][0] < x:  # we have to go left
-            return 'a', grid
+            return 'a'
         elif path[1][1] > y:  # we have to go up
-            return 'w', grid
+            return 'w'
         elif path[1][1] < y:
-            return 's', grid
+            return 's'
         else:
             print("\n****\n****\nLINE\n\n\n")
             print(path[0])
             print(path[1])
             print("\n****\n****\nLINE\n\n\n")
-            return 's', grid
+            return 's'
 
 
-def whichWayAStar(grid, pacpos, state, goalPos, closestGoalIndex, ghosts):
+def whichWayAStar(grid, pacpos, goalPos, ghosts):
     # print(goalPos)
     # print(ghosts)
     x = pacpos[0]
@@ -135,29 +135,32 @@ def whichWayAStar(grid, pacpos, state, goalPos, closestGoalIndex, ghosts):
     print("My position is", x, y)
     # if grid[x][y] == e:
     #     print("already eaten!")
-    grid[x][y] = e
+
     # closestPowerIndex = np.argmin(closestPower)
     # print('power pos', goalPos)
     # print('closest power', closestPowerIndex)
     # path = findClosestAStar(grid, x, y, goalPos[closestGoalIndex], ghostPos)
     path = findClosestAStar(grid, x, y, goalPos, ghostPos)
-    print(path)
+    # print(path)
     # print("Closest goal is at: " + str(goalX) + ", " + str(goalY))
     # go to the dot at goalX, goalY
+    if path is None:  # in theory, this should never happen
+        print(f'No path found! Pacpos {pacpos}, goalpos {goalPos}, ghosts {ghosts}')
+    print("path",  path)
     print("Next move is to: " + str(path[1]))
     # print("Next move is to: " + str(path))
     if path[1][0] > x:  # we have to go right
-        return 'd', grid
+        return 'd'
     elif path[1][0] < x:  # we have to go left
-        return 'a', grid
+        return 'a'
     elif path[1][1] > y:  # we have to go up
-        return 'w', grid
+        return 'w'
     elif path[1][1] < y:
-        return 's', grid
+        return 's'
     else:
         # print(path[0])
         # print(path[1])
-        return 's', grid
+        return 's'
 
 
 def distTo(x, y, newx, newy):
@@ -201,8 +204,8 @@ def findClosestBFS(grid, x, y):
 
 
 def findClosestAStar(grid, x, y, goalPos, ghostPos):
-    print(goalPos)
-    print(ghostPos)
+    # print(goalPos)
+    # print(ghostPos)
     pq = HQ.HQ()
     start = Node.Node(grid, (x, y), goalPos, 0, None, ghostPos)
     pq.insert(start)
@@ -228,7 +231,7 @@ def findClosestAStar(grid, x, y, goalPos, ghostPos):
         # Generating neighbors of the current state and adding them to the PQ
         # if not visited already
         node.generateNeighbors()
-        node.printNeighbors()
+        # node.printNeighbors()
         for i in range(len(node.neighbors)):
             # Checking if the neighbor was visited or already in the PQ
             if node.neighbors[i].pos not in visited and (pq.contains(node.neighbors[i].pos) == -1):

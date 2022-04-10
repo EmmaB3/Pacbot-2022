@@ -76,6 +76,8 @@ class InputModule(rm.ProtoModule):
                 newgrid
             except NameError:
                 newgrid = grid
+            
+            newgrid[self.pacbot_pos[0]][self.pacbot_pos[1]] = e
 
             # ghostPos = [(self.state.red_ghost.x, self.state.red_ghost.y),
             #     (self.state.pink_ghost.x, self.state.pink_ghost.y),
@@ -85,18 +87,21 @@ class InputModule(rm.ProtoModule):
             ghosts = [self.state.red_ghost, self.state.pink_ghost, self.state.blue_ghost, self.state.orange_ghost]
             # print(dir(self.state.red_ghost))
             frightened = [ghost for ghost in ghosts if ghost.frightened_counter > 0]
-            print("num frightened:", len(frightened))
 
             if len(frightened) != 0:
                 nonScared = [g for g in ghosts if not g.frightened_counter > 0]
-                frightenedPos = [(ghost.x, ghost.y) for ghost in frightened]
+                # positions of all frightened ghosts which are NOT in the ghost
+                #   enclosure (path finder does not consider those as valid
+                #   squares!)
+                frightenedPos = [(ghost.x, ghost.y) for ghost in frightened if grid[ghost.x][ghost.y] != n]
                 closestGhost = []
                 for p in frightenedPos:
                     closestGhost.append(abs(self.pacbot_pos[0] - p[0]) + abs(self.pacbot_pos[1] - p[1]))
-                closestGhostPos = frightenedPos[np.argmin(closestGhost)]
-                outChar, newgrid = smarterInput.whichWayAStar(newgrid, self.pacbot_pos, 
-                                                              self.state, closestGhostPos, -1, nonScared)
+                goalPos = frightenedPos[np.argmin(closestGhost)]
+                # outChar = smarterInput.whichWayAStar(newgrid, self.pacbot_pos, 
+                #                                               closestGhostPos, nonScared)
             else:
+                nonScared = ghosts
                 powerPos = [(1, 7), (1, 27), (26, 7), (26, 27)]
                 closestPower = []
                 for index in range(len(powerPos) -1, -1, -1):
@@ -108,13 +113,14 @@ class InputModule(rm.ProtoModule):
                 closestPower.reverse()
                 
                 if len(closestPower) != 0:
-                    closestPowerPos = powerPos[np.argmin(closestPower)]
+                    goalPos = powerPos[np.argmin(closestPower)]
                 else:
-                    closestPowerPos = smarterInput.findClosestBFS(newgrid, *self.pacbot_pos)
-                    print("now going for regular pellet at", closestPowerPos)
+                    goalPos = smarterInput.findClosestBFS(newgrid, *self.pacbot_pos)[:2]
+                    print("now going for regular pellet at", goalPos)
 
-                outChar, newgrid = smarterInput.whichWayAStar(newgrid, self.pacbot_pos, 
-                                                                self.state, closestPowerPos, -1, ghosts)
+
+            outChar = smarterInput.whichWayAStar(newgrid, self.pacbot_pos, 
+                                                            goalPos, nonScared)
                 # else:
                 #     outChar, newgrid = smarterInput.whichWayBFS(newgrid, self.pacbot_pos)
             print("dir: " + str(outChar))
