@@ -1,0 +1,17 @@
+syntax = "proto2";
+
+package gameEngine;
+
+message PacmanDirection {
+
+    required Direction direction = 1;
+
+    enum Direction {
+        STOP = 1;
+        W = 2;
+        A = 3;
+        S = 4;
+        D = 5;
+    }
+
+  }
