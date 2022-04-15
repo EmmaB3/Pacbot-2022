@@ -1,4 +1,5 @@
 from pacbot.variables import *
+import numpy as np
 
 
 def manhattanDist(currPos, goalPos) -> float:
@@ -7,7 +8,7 @@ def manhattanDist(currPos, goalPos) -> float:
 
 # Class definition of a node in the search space
 class Node:
-    def __init__(self, grid, pos, goalPos, cost, prev, ghostPos):
+    def __init__(self, grid, pos, goalPos, cost, prev, ghostPos, avoid):
         self.grid = grid
         self.pos = pos
         self.goalPos = goalPos
@@ -15,7 +16,7 @@ class Node:
         self.neighbors = []
         self.prev = prev
         self.ghostPos = ghostPos
-
+        self.avoid = avoid
         self.state = pos
 
     # Overloading the greater than operator so that node comparisons can be made
@@ -32,34 +33,25 @@ class Node:
         x = self.pos[0]
         y = self.pos[1]
         newCost = self.cost
-        if self.grid[x][y + 1] not in [I, n]:
-            if self.grid[x][y + 1] in self.ghostPos: #Fix this
-                newCost = 9999
-            else:
-                newCost += 1 + manhattanDist((x, y - 1), self.goalPos)
-            node = Node(self.grid, (x, y + 1), self.goalPos, newCost, self, self.ghostPos)
-            self.neighbors.append(node)
-        if self.grid[x][y - 1] not in [I, n]:
-            if self.grid[x][y - 1] in self.ghostPos: #Fix this
-                newCost = 9999
-            else:
-                newCost += 1 + manhattanDist((x, y - 1), self.goalPos)
-            node = Node(self.grid, (x, y - 1), self.goalPos, newCost, self, self.ghostPos)
-            self.neighbors.append(node)
-        if self.grid[x + 1][y] not in [I, n]:
-            if self.grid[x + 1][y] in self.ghostPos: #Fix this
-                newCost = 9999
-            else:
-                newCost += 1 + manhattanDist((x + 1, y), self.goalPos)
-            node = Node(self.grid, (x + 1, y), self.goalPos, newCost, self, self.ghostPos)
-            self.neighbors.append(node)
-        if self.grid[x - 1][y] not in [I, n]:
-            if self.grid[x - 1][y] in self.ghostPos: #Fix this
-                newCost = 9999
-            else:
-                newCost += 1 + manhattanDist((x - 1, y), self.goalPos)
-            node = Node(self.grid, (x - 1, y), self.goalPos, newCost, self, self.ghostPos)
-            self.neighbors.append(node)
+
+        if self.ghostPos:
+            ghostDists = []
+            for ghost in self.ghostPos:
+                ghostDists.append(manhattanDist(self.pos, ghost))
+            closestGhost = self.ghostPos[np.argmin(ghostDists)]
+
+        neighborPos = [(x, y + 1), (x, y - 1), (x + 1, y), (x - 1, y)]
+        for nx, ny in neighborPos:
+            if self.grid[nx][ny] not in [I, n]:
+                if self.grid[nx][ny] in self.ghostPos: #Fix this
+                    newCost = 9999 * (-1 if self.avoid else 1)
+                else:
+                    newCost += (1 + manhattanDist((nx, ny), self.goalPos)) * (-1 if self.avoid else 1)
+                    if self.ghostPos:
+                        newCost += (75.0 / (0.1 + manhattanDist((nx, ny), closestGhost)))
+
+                node = Node(self.grid, (nx, ny), self.goalPos, newCost, self, self.ghostPos, self.avoid)
+                self.neighbors.append(node)
 
     # Method to print neighbors of a node. Used for debugging
     def printNeighbors(self):

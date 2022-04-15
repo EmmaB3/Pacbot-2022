@@ -6,6 +6,7 @@ from messages import *
 from pacbot.variables import *
 from pacbot.grid import *
 import numpy as np
+import Node
 
 ###### AI INPUT STUFF ########
 import random
@@ -21,6 +22,8 @@ SPEED = 1.0
 # SPEED = 5.0 # originally 1.0
 FREQUENCY = SPEED * game_frequency
 
+GHOST_AVOID_RANGE = 6.0
+
 class InputModule(rm.ProtoModule):
     def __init__(self, addr, port):
         self.subscriptions = [MsgType.FULL_STATE]
@@ -34,6 +37,8 @@ class InputModule(rm.ProtoModule):
         self.state.mode = PacmanState.PAUSED
         self.lives = starting_lives
         self.clicks = 0
+        self.timer = 20
+        self.avoid = False
 
     def _move_if_valid_dir(self, direction, x, y):
         if direction == right and grid[x + 1][y] not in [I, n]:
@@ -78,17 +83,13 @@ class InputModule(rm.ProtoModule):
                 newgrid = grid
             
             newgrid[self.pacbot_pos[0]][self.pacbot_pos[1]] = e
-
-            # ghostPos = [(self.state.red_ghost.x, self.state.red_ghost.y),
-            #     (self.state.pink_ghost.x, self.state.pink_ghost.y),
-            #     (self.state.blue_ghost.x, self.state.blue_ghost.y),
-            #     (self.state.orange_ghost.x, self.state.orange_ghost.y)]
             
             ghosts = [self.state.red_ghost, self.state.pink_ghost, self.state.blue_ghost, self.state.orange_ghost]
             # print(dir(self.state.red_ghost))
             frightened = [ghost for ghost in ghosts if ghost.frightened_counter > 0]
 
             if len(frightened) != 0:
+                self.timer -= 1 # do this
                 nonScared = [g for g in ghosts if not g.frightened_counter > 0]
                 # positions of all frightened ghosts which are NOT in the ghost
                 #   enclosure (path finder does not consider those as valid
@@ -115,14 +116,26 @@ class InputModule(rm.ProtoModule):
                 if len(closestPower) != 0:
                     goalPos = powerPos[np.argmin(closestPower)]
                 else:
-                    goalPos = smarterInput.findClosestBFS(newgrid, *self.pacbot_pos)[:2]
-                    print("now going for regular pellet at", goalPos)
+                    ghostDists = []
+                    for ghost in ghosts:
+                        ghostDists.append(Node.manhattanDist(self.pacbot_pos, (ghost.x, ghost.y)))
+                    if not self.avoid and min(ghostDists) < GHOST_AVOID_RANGE:
+                        self.avoid = True
+                    if self.avoid and min(ghostDists) > GHOST_AVOID_RANGE + 1:
+                        self.avoid = False
+
+                    if not self.avoid:
+                        goalPos = smarterInput.findClosestBFS(newgrid, *self.pacbot_pos)[:2]
+                        print("now going for regular pellet at", goalPos)
+                    else:
+                        closestGhost = ghosts[np.argmin(ghostDists)]
+                        goalPos = (closestGhost.x, closestGhost.y)
+                        print(f'now avoiding ghost at {goalPos}')
 
 
             outChar = smarterInput.whichWayAStar(newgrid, self.pacbot_pos, 
-                                                            goalPos, nonScared)
-                # else:
-                #     outChar, newgrid = smarterInput.whichWayBFS(newgrid, self.pacbot_pos)
+                                                            goalPos, nonScared, self.avoid)
+
             print("dir: " + str(outChar))
             if outChar == 'a':
                 self.next_dir = left

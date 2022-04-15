@@ -126,29 +126,19 @@ def whichWayBFS(grid, pacpos):
             return 's'
 
 
-def whichWayAStar(grid, pacpos, goalPos, ghosts):
-    # print(goalPos)
-    # print(ghosts)
+def whichWayAStar(grid, pacpos, goalPos, ghosts, avoid):
     x = pacpos[0]
     y = pacpos[1]
     ghostPos = [(g.x,g.y) for g in ghosts]
     print("My position is", x, y)
-    # if grid[x][y] == e:
-    #     print("already eaten!")
 
-    # closestPowerIndex = np.argmin(closestPower)
-    # print('power pos', goalPos)
-    # print('closest power', closestPowerIndex)
-    # path = findClosestAStar(grid, x, y, goalPos[closestGoalIndex], ghostPos)
-    path = findClosestAStar(grid, x, y, goalPos, ghostPos)
-    # print(path)
-    # print("Closest goal is at: " + str(goalX) + ", " + str(goalY))
+    path = findClosestAStar(grid, x, y, goalPos, ghostPos, avoid)
     # go to the dot at goalX, goalY
     if path is None:  # in theory, this should never happen
         print(f'No path found! Pacpos {pacpos}, goalpos {goalPos}, ghosts {ghosts}')
     print("path",  path)
     print("Next move is to: " + str(path[1]))
-    # print("Next move is to: " + str(path))
+
     if path[1][0] > x:  # we have to go right
         return 'd'
     elif path[1][0] < x:  # we have to go left
@@ -158,8 +148,6 @@ def whichWayAStar(grid, pacpos, goalPos, ghosts):
     elif path[1][1] < y:
         return 's'
     else:
-        # print(path[0])
-        # print(path[1])
         return 's'
 
 
@@ -203,11 +191,11 @@ def findClosestBFS(grid, x, y):
                 queue.append((childX, childY + 1, childPath.copy()))
 
 
-def findClosestAStar(grid, x, y, goalPos, ghostPos):
+def findClosestAStar(grid, x, y, goalPos, ghostPos, avoid):
     # print(goalPos)
     # print(ghostPos)
     pq = HQ.HQ()
-    start = Node.Node(grid, (x, y), goalPos, 0, None, ghostPos)
+    start = Node.Node(grid, (x, y), goalPos, 0, None, ghostPos, avoid)
     pq.insert(start)
     visited = set()
     nodeNumber = 0
@@ -219,7 +207,6 @@ def findClosestAStar(grid, x, y, goalPos, ghostPos):
             break
         node = pq.remove()
         nodeNumber += 1
-        # print("***NODE NUMBER: ", nodeNumber)
         # "Marking" (adding to a list) the state as visited
         visited.add(node.pos)
         # Checks if the current state is the goal state
