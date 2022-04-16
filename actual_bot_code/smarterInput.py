@@ -1,4 +1,4 @@
-from variables import *
+from .variables import *
 import Node
 import HQ
 import numpy as np

@@ -8,7 +8,7 @@ from messages import MsgType, message_buffers, PacmanDirection
 ADDRESS = os.environ.get("LOCAL_ADDRESS","localhost")
 PORT = os.environ.get("LOCAL_PORT", 11295)
 
-FREQUENCY = 0
+FREQUENCY = 60
 
 # drive robot based on command line input
 class TestCommandModule(rm.ProtoModule):
@@ -22,12 +22,12 @@ class TestCommandModule(rm.ProtoModule):
        pass
 
     def tick(self):
-        msg = self._get_direction()
-
-        self.write(msg.SerializeToString(), MsgType.PACMAN_DIRECTION)
+        new_msg = PacmanDirection()
+        new_msg.direction = self._get_direction()
+        self.write(new_msg.SerializeToString(), MsgType.PACMAN_DIRECTION)
 
     def _get_direction(self):
-        print('enter robot direction (w/a/s/d/stop):')
+        print('enter robot direction (w/a/s/d/stop):', end='')
         command = input()
         if command == 'w':
             return PacmanDirection.Direction.W
@@ -41,12 +41,12 @@ class TestCommandModule(rm.ProtoModule):
             return PacmanDirection.Direction.STOP
         else:
             print('invalid input. try again.')
+            return self._get_direction()
 
 
 def main():
     module = TestCommandModule(ADDRESS, PORT)
-    while True:
-        module.tick()
+    module.run()
 
 
 if __name__ == "__main__":

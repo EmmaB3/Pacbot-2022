@@ -41,8 +41,8 @@ def stop_moving():
 
 def forward():
     print('forward')
-    leftMotor.forward(0.5)
-    rightMotor.forward(0.5)
+    leftMotor.forward(1.0)
+    rightMotor.forward(1.0)
 
 sensors = []
 
@@ -65,7 +65,6 @@ sensors.append(adafruit_vl6180x.VL6180X(tca[1])) # forward facing
 sensors.append(adafruit_vl6180x.VL6180X(tca[0])) # left facing
 sensors.append(adafruit_vl6180x.VL6180X(tca[2])) # right facing
 # sensors.append(adafruit_vl6180x.VL6180X(tca[3]))
-
 actions = [stop_moving, go_right, go_left]
 
 # We want to be able to tell if more than 1 readings says we should turn. 
@@ -82,7 +81,6 @@ while True:
     
     # Gets the difference betewen the two sensors
     # difference = s0_distance - s1_distance
-    
     forwardable = True
     for i in range(len(sensors)):
         print(f'sensor {i} value: {sensors[i].range}')
@@ -98,6 +96,7 @@ while True:
             counts[i] = 0
     if forwardable:
         forward()
+
     # # Turns robot left
     # if (difference > 15):
     #     left_count = left_count + 1

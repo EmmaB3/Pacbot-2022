@@ -12,11 +12,11 @@ class DistanceSensor:
         self.count = 0
     
     @property
-    def value(self):
+    def range(self):
         return self.sensor.range
     
     def is_too_close(self):
-        if self.value < MIN_DIST:
+        if self.range < MIN_DIST:
             self.count += 1
             if self.count > READING_AMOUNT:
                 return True

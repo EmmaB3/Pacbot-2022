@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-
-import enum
+from enum import Enum
 from messages.pacmanDirection_pb2 import PacmanDirection
 import adafruit_tca9548a
 import board
@@ -14,10 +13,10 @@ from distanceSensor import DistanceSensor
 ADDRESS = os.environ.get("LOCAL_ADDRESS","localhost")
 PORT = os.environ.get("LOCAL_PORT", 11295)
 
-FREQUENCY = 60
+FREQUENCY = 0 # was 60
 
 
-class DriveMode(enum):
+class DriveMode(Enum):
     STOPPED = 0
     TURNING = 1
     STRAIGHT = 2
@@ -27,10 +26,10 @@ class DriveMode(enum):
 #   based off gyro value when turning? maybe
 class MotorModule(rm.ProtoModule):
     def __init__(self, addr, port):
-        self.subscriptions = []
+        self.subscriptions = [MsgType.PACMAN_DIRECTION, MsgType.LIGHT_STATE]
         super().__init__(addr, port, message_buffers, MsgType, FREQUENCY, self.subscriptions)
         self.state = None
-        self.current_direction = None
+        self.current_direction = PacmanDirection.W
         self.desired_direction = None
         self.mode = None
 
@@ -60,14 +59,15 @@ class MotorModule(rm.ProtoModule):
     def msg_received(self, msg, msg_type):
         if msg_type == MsgType.PACMAN_DIRECTION:
             self.desired_direction = msg.direction
+        print(f'got message {msg}')
 
     def tick(self):
         if self.desired_direction == PacmanDirection.STOP:  # ok it's kinda weird that "stop" is considered a direction. maybe have it be a separate boolean in the message???
             self.mode = DriveMode.STOPPED  # should this happen inside the _stop function?
             self._stop()
         if self.current_direction != self.desired_direction:
-            self.mode = DriveMode.TURNING
-        else:
+        #     self.mode = DriveMode.TURNING  # TODO: temporary
+        # else:
             self.mode = DriveMode.STRAIGHT
         
         if self.mode == DriveMode.TURNING:
@@ -88,7 +88,7 @@ class MotorModule(rm.ProtoModule):
                 print(f'no action needed for {sensor} sensor')
         
         if is_straight:
-            self._drive_forward()
+            self._drive_forward(0.3)
     
     def _veer_left(self):
         print('veering left')
@@ -106,8 +106,8 @@ class MotorModule(rm.ProtoModule):
         self.left_motor.stop()
     
     def _drive_forward(self, speed):
-        print('driving forward at speed {speed}')
-        self.left_motor.foward(speed)
+        print(f'driving forward at speed {speed}')
+        self.left_motor.forward(speed)
         self.right_motor.forward(speed)
 
 
