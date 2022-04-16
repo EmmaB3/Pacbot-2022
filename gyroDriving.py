@@ -185,11 +185,11 @@ def gyro_forward(init_Gz):
 		calibrated_Gz = Gz - init_Gz
 		yaw += calibrated_Gz*timeDiv
 		sleep(timeDiv)
-		if yaw < -0.05: 
+		if yaw < -0.03: 
 			print("gotta go left")
 			leftMotor.forward(0.5)
 			rightMotor.forward(0.7)
-		elif yaw > 0.05:
+		elif yaw > 0.03:
 			print("gotta go right")
 			leftMotor.forward(0.7)
 			rightMotor.forward(0.5)
@@ -243,9 +243,9 @@ actions = [stop_moving, go_right, go_left]
 # We want to be able to tell if more than 1 readings says we should turn. 
 counts = [0] * 3
 
-for i in range(4):
-    gyro_turn_left(init_Gz)
-stop_moving()
+# for i in range(4):
+#     gyro_turn_left(init_Gz)
+# stop_moving()
 
 sleep(1.5)
 
