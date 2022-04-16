@@ -3,15 +3,15 @@
 import os
 import robomodules as rm
 from variables import *
-from .messages import MsgType, message_buffers, PacmanDirection
+from messages import MsgType, message_buffers, PacmanDirection
 
 ADDRESS = os.environ.get("LOCAL_ADDRESS","localhost")
 PORT = os.environ.get("LOCAL_PORT", 11295)
 
-FREQUENCY = 1000
+FREQUENCY = 0
 
-# once a second, tells robot to either go up (in grid) or stop (for testing)
-class MotorModule(rm.ProtoModule):
+# drive robot based on command line input
+class TestCommandModule(rm.ProtoModule):
     def __init__(self, addr, port):
         self.subscriptions = []
         super().__init__(addr, port, message_buffers, MsgType, FREQUENCY, self.subscriptions)
@@ -22,18 +22,31 @@ class MotorModule(rm.ProtoModule):
        pass
 
     def tick(self):
-        msg = PacmanDirection()
-        if self.last_command == PacmanDirection.STOP:
-            msg.direction = PacmanDirection.W
-        else:
-            msg.direction = PacmanDirection.STOP
+        msg = self._get_direction()
 
         self.write(msg.SerializeToString(), MsgType.PACMAN_DIRECTION)
 
+    def _get_direction(self):
+        print('enter robot direction (w/a/s/d/stop):')
+        command = input()
+        if command == 'w':
+            return PacmanDirection.Direction.W
+        elif command == 'a':
+            return PacmanDirection.Direction.A
+        elif command == 's':
+            return PacmanDirection.Direction.S
+        elif command == 'd':
+            return PacmanDirection.Direction.D
+        elif command == 'stop':
+            return PacmanDirection.Direction.STOP
+        else:
+            print('invalid input. try again.')
+
 
 def main():
-    module = MotorModule(ADDRESS, PORT)
-    module.run()
+    module = TestCommandModule(ADDRESS, PORT)
+    while True:
+        module.tick()
 
 
 if __name__ == "__main__":
