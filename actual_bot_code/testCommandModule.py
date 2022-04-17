@@ -2,7 +2,7 @@
 
 import os
 import robomodules as rm
-from variables import *
+from pacbot.variables import *
 from messages import MsgType, message_buffers, PacmanDirection
 
 ADDRESS = os.environ.get("LOCAL_ADDRESS","localhost")
@@ -28,7 +28,7 @@ class TestCommandModule(rm.ProtoModule):
 
     def _get_direction(self):
         print('enter robot direction (w/a/s/d/stop):', end='')
-        command = input()
+        command = input().lower()
         if command == 'w':
             return PacmanDirection.Direction.W
         elif command == 'a':

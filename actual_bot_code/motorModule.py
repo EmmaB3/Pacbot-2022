@@ -9,7 +9,7 @@ from distanceSensor import DistanceSensor
 from gpiozero import PhaseEnableMotor
 from gyro import Gyro
 from messages import MsgType, message_buffers, PacmanDirection
-from variables import *
+from pacbot.variables import *
 
 ADDRESS = os.environ.get("LOCAL_ADDRESS","localhost")
 PORT = os.environ.get("LOCAL_PORT", 11295)
