@@ -7,11 +7,11 @@ message PacmanDirection {
     required Direction direction = 1;
 
     enum Direction {
-        STOP = 1;
-        W = 2;
-        A = 3;
-        S = 4;
-        D = 5;
+        STOP = 4;
+        W = 0;
+        A = 1;
+        S = 2;
+        D = 3;
     }
 
   }

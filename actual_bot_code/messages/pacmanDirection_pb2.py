@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15pacmanDirection.proto\x12\ngameEngine\"~\n\x0fPacmanDirection\x12\x38\n\tdirection\x18\x01 \x02(\x0e\x32%.gameEngine.PacmanDirection.Direction\"1\n\tDirection\x12\x08\n\x04STOP\x10\x01\x12\x05\n\x01W\x10\x02\x12\x05\n\x01\x41\x10\x03\x12\x05\n\x01S\x10\x04\x12\x05\n\x01\x44\x10\x05')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15pacmanDirection.proto\x12\ngameEngine\"~\n\x0fPacmanDirection\x12\x38\n\tdirection\x18\x01 \x02(\x0e\x32%.gameEngine.PacmanDirection.Direction\"1\n\tDirection\x12\x08\n\x04STOP\x10\x04\x12\x05\n\x01W\x10\x00\x12\x05\n\x01\x41\x10\x01\x12\x05\n\x01S\x10\x02\x12\x05\n\x01\x44\x10\x03')
 
 
 

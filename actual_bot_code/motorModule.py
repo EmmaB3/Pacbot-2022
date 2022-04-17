@@ -1,19 +1,26 @@
 #!/usr/bin/env python3
-from enum import Enum
-from messages.pacmanDirection_pb2 import PacmanDirection
 import adafruit_tca9548a
 import board
-from gpiozero import PhaseEnableMotor
 import os
 import robomodules as rm
-from variables import *
-from messages import MsgType, message_buffers
+
+from enum import Enum
 from distanceSensor import DistanceSensor
+from gpiozero import PhaseEnableMotor
+from gyro import Gyro
+from messages import MsgType, message_buffers, PacmanDirection
+from variables import *
 
 ADDRESS = os.environ.get("LOCAL_ADDRESS","localhost")
 PORT = os.environ.get("LOCAL_PORT", 11295)
 
-FREQUENCY = 0 # was 60
+FREQUENCY = 60
+
+TURN_LEFT_YAW = 5.69
+TURN_RIGHT_YAW = 5.69
+TURN_AROUND_YAW = 11.38
+
+YAW_ALLOWANCE = 0.03
 
 
 class DriveMode(Enum):
@@ -22,16 +29,27 @@ class DriveMode(Enum):
     STRAIGHT = 2
 
 
+class TurnDirection(Enum):
+    LEFT = 0
+    RIGHT = 1
+    AROUND = 2
+
+
 # TODO: would be cool to add PID control (https://pypi.org/project/simple-pid/) 
 #   based off gyro value when turning? maybe
 class MotorModule(rm.ProtoModule):
     def __init__(self, addr, port):
-        self.subscriptions = [MsgType.PACMAN_DIRECTION, MsgType.LIGHT_STATE]
+        self.subscriptions = [MsgType.PACMAN_DIRECTION]
         super().__init__(addr, port, message_buffers, MsgType, FREQUENCY, self.subscriptions)
         self.state = None
         self.current_direction = PacmanDirection.W
         self.desired_direction = None
         self.mode = None
+        self.turn_direction = None
+
+        # gyro
+        self.gyro = Gyro()
+        self.yaw = 0
 
         # motors
         self.left_motor = PhaseEnableMotor(5, 12)
@@ -62,20 +80,75 @@ class MotorModule(rm.ProtoModule):
         print(f'got message {msg}')
 
     def tick(self):
-        if self.desired_direction == PacmanDirection.STOP:  # ok it's kinda weird that "stop" is considered a direction. maybe have it be a separate boolean in the message???
-            self.mode = DriveMode.STOPPED  # should this happen inside the _stop function?
-            self._stop()
-        if self.current_direction != self.desired_direction:
-        #     self.mode = DriveMode.TURNING  # TODO: temporary
-        # else:
+        # if self.mode != DriveMode.STOPPED:
+        #     done = self._turn_right(5.69)
+        #     if done:
+        #         self._stop()
+        #         self.mode = DriveMode.STOPPED
+        # if told to stop, stop
+        if self.desired_direction == PacmanDirection.STOP:
+            if self.mode != DriveMode.STOPPED:
+                self.mode = DriveMode.STOPPED
+                self._stop()
+        elif self.current_direction != self.desired_direction:
+            self.mode = DriveMode.TURNING
+        else:
             self.mode = DriveMode.STRAIGHT
         
         if self.mode == DriveMode.TURNING:
-            pass  # TODO: put the gyro stuff in here idk
-        else:
-            self._drive_straight()
+            # starting turn
+            if self.turn_direction is None:
+                self.yaw = 0
+                self.turn_direction = self._pick_turn_direction()
+
+            # continuing an already underway turn
+            done = False
+            if self.turn_direction == TurnDirection.AROUND:
+                done = self._turn_around()
+            elif self.turn_direction == TurnDirection.RIGHT:
+                done = self._turn_right()
+            else:
+                done = self._turn_left()
+            
+            # completing turn
+            if done:
+                self.yaw = 0
+                self.current_direction = self.desired_direction
+
+        elif self.mode == DriveMode.STRAIGHT:
+            self._drive_straight_gyro()
+
+    # returns turn direction (enum value)
+    def _pick_turn_direction(self):
+        # warning: quirky math shit ahead (basically i'm using the fact that 
+        #   the directions are in an enum, w/ values 0 through 4, to inform the 
+        #   choice of direction to turn)
+        offset = self.desired_direction - self.current_direction
+        if abs(offset) == 2:
+            return TurnDirection.AROUND
+        elif offset == 1 or offset == -3:
+            return TurnDirection.LEFT
+        elif offset == -2 or offset == 3:
+            return TurnDirection.RIGHT
+        else:  # theoretically this should not happen
+            return None
     
-    def _drive_straight(self):
+    def _drive_straight_gyro(self):
+        self.yaw += (1.0 / FREQUENCY) * self.gyro.value
+        if self.yaw < - YAW_ALLOWANCE:
+            print("gotta go left")
+            self.left_motor.forward(0.5)
+            self.right_motor.forward(0.7)
+        elif self.yaw > YAW_ALLOWANCE:
+            print("gotta go right")
+            self.left_motor.forward(0.7)
+            self.right_motor.forward(0.5)
+        else:
+            print("onwards")
+            self.left_motor.forward(0.6)
+            self.right_motor.forward(0.6)
+
+    def _drive_straight_dist_sensors(self):
         is_straight = True  # homophobia
         for sensor in self.dist_sensors:
             print(f'{sensor} sensor value: {sensor.range}')
@@ -103,12 +176,41 @@ class MotorModule(rm.ProtoModule):
     def _stop(self):
         print('stop')
         self.left_motor.stop()
-        self.left_motor.stop()
+        self.right_motor.stop()
     
     def _drive_forward(self, speed):
         print(f'driving forward at speed {speed}')
         self.left_motor.forward(speed)
         self.right_motor.forward(speed)
+    
+    # returns whether or not it's done turning
+    def _turn(self, target, left):
+        self.yaw += (1.0 / FREQUENCY) * self.gyro.value
+        if abs(self.yaw) < target:
+            if left:
+                self.left_motor.forward(0.3)
+                self.right_motor.backward(0.3)
+            else:
+                self.left_motor.backward(0.3)
+                self.right_motor.forward(0.3)
+            return False
+        else:
+            return True
+    
+    # returns whether or not it's done turning
+    def _turn_right(self):
+        print('turning right')
+        return self._turn(TURN_RIGHT_YAW, False)
+    
+    # returns whether or not it's done turning
+    def _turn_left(self):
+        print('turning left')
+        return self._turn(TURN_LEFT_YAW, True)
+    
+    # returns whether or not it's done turning
+    def _turn_around(self):
+        print('turning around')
+        return self._turn(TURN_AROUND_YAW, True)
 
 
 def main():
