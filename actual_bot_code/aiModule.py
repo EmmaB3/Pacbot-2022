@@ -4,8 +4,8 @@ import os, sys
 import robomodules as rm
 from messages import MsgType, message_buffers, PacmanDirection, PacmanState
 from Node import manhattanDist
-from pacbot.variables import *
-from pacbot.grid import *
+from variables import *
+from grid import *
 import numpy as np
 
 ###### AI INPUT STUFF ########
@@ -32,12 +32,11 @@ char_to_direction = {
     'stop': PacmanDirection.STOP
 }
 
-class InputModule(rm.ProtoModule):
+class AIModule(rm.ProtoModule):
     def __init__(self, addr, port):
         self.subscriptions = [MsgType.LIGHT_STATE]
         super().__init__(addr, port, message_buffers, MsgType, FREQUENCY, self.subscriptions)
 
-        self.loop.add_reader(sys.stdin, self.keypress)
         self.pacbot_pos = [pacbot_starting_pos[0], pacbot_starting_pos[1]]
         self.state = PacmanState()
         self.state.mode = PacmanState.PAUSED
@@ -143,7 +142,7 @@ class InputModule(rm.ProtoModule):
 
 
 def main():
-    module = InputModule(ADDRESS, PORT)
+    module = AIModule(ADDRESS, PORT)
     module.run()
 
 if __name__ == "__main__":

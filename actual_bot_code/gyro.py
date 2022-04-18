@@ -55,5 +55,6 @@ class Gyro:
     
     @property
     def value(self):
+        print('raw gyro value', self._read_raw_data(GYRO_ZOUT_H))
         Gz = self._read_raw_data(GYRO_ZOUT_H) / SCALE_FACTOR
         return Gz - self.init_Gz

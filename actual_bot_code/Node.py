@@ -1,4 +1,4 @@
-from pacbot.variables import *
+from variables import *
 import numpy as np
 
 

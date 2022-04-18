@@ -9,16 +9,16 @@ from distanceSensor import DistanceSensor
 from gpiozero import PhaseEnableMotor
 from gyro import Gyro
 from messages import MsgType, message_buffers, PacmanDirection
-from pacbot.variables import *
+from variables import *
 
 ADDRESS = os.environ.get("LOCAL_ADDRESS","localhost")
 PORT = os.environ.get("LOCAL_PORT", 11295)
 
 FREQUENCY = 60
 
-TURN_LEFT_YAW = 5.69
-TURN_RIGHT_YAW = 5.69
-TURN_AROUND_YAW = 11.38
+TURN_LEFT_YAW = 9.90
+TURN_RIGHT_YAW = 9.90
+TURN_AROUND_YAW = 20.25
 
 YAW_ALLOWANCE = 0.03
 
@@ -43,7 +43,7 @@ class MotorModule(rm.ProtoModule):
         super().__init__(addr, port, message_buffers, MsgType, FREQUENCY, self.subscriptions)
         self.state = None
         self.current_direction = PacmanDirection.W
-        self.desired_direction = None
+        self.desired_direction = PacmanDirection.STOP
         self.mode = None
         self.turn_direction = None
 
@@ -86,6 +86,7 @@ class MotorModule(rm.ProtoModule):
         #         self._stop()
         #         self.mode = DriveMode.STOPPED
         # if told to stop, stop
+        # print(f'desired: {self.desired_direction} current: {self.current_direction}')
         if self.desired_direction == PacmanDirection.STOP:
             if self.mode != DriveMode.STOPPED:
                 self.mode = DriveMode.STOPPED
@@ -96,10 +97,12 @@ class MotorModule(rm.ProtoModule):
             self.mode = DriveMode.STRAIGHT
         
         if self.mode == DriveMode.TURNING:
+            print(f'desired: {self.desired_direction}, current: {self.current_direction}')
             # starting turn
             if self.turn_direction is None:
                 self.yaw = 0
                 self.turn_direction = self._pick_turn_direction()
+                print(f'zeroing yaw, turn direction {self.turn_direction}')
 
             # continuing an already underway turn
             done = False
@@ -114,6 +117,9 @@ class MotorModule(rm.ProtoModule):
             if done:
                 self.yaw = 0
                 self.current_direction = self.desired_direction
+                self.turn_direction = None
+                # self._stop() # TEMP
+                # self.mode = DriveMode.STOPPED # TEMP
 
         elif self.mode == DriveMode.STRAIGHT:
             self._drive_straight_gyro()
@@ -124,11 +130,12 @@ class MotorModule(rm.ProtoModule):
         #   the directions are in an enum, w/ values 0 through 4, to inform the 
         #   choice of direction to turn)
         offset = self.desired_direction - self.current_direction
+        print(f'PICK TURN DIRECTION {offset}')
         if abs(offset) == 2:
             return TurnDirection.AROUND
         elif offset == 1 or offset == -3:
             return TurnDirection.LEFT
-        elif offset == -2 or offset == 3:
+        elif offset == -1 or offset == 3:
             return TurnDirection.RIGHT
         else:  # theoretically this should not happen
             return None
@@ -186,13 +193,14 @@ class MotorModule(rm.ProtoModule):
     # returns whether or not it's done turning
     def _turn(self, target, left):
         self.yaw += (1.0 / FREQUENCY) * self.gyro.value
+        print(f'yaw: {self.yaw}, target: {target}, gyro value: {self.gyro.value}')
         if abs(self.yaw) < target:
             if left:
-                self.left_motor.forward(0.3)
-                self.right_motor.backward(0.3)
-            else:
                 self.left_motor.backward(0.3)
                 self.right_motor.forward(0.3)
+            else:
+                self.left_motor.forward(0.3)
+                self.right_motor.backward(0.3)
             return False
         else:
             return True
