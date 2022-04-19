@@ -1,6 +1,6 @@
 # Pacbot-2022
 
-I've decided to kinda sorta write a readme about the bot code because it seems bad that I'm the only one who knows anything about it. I will be... pleasantly surprised if either of you actually reads this but hey. A girl can dream.
+I've decided to kinda sorta write a readme about the bot code because it seems bad that I'm the only one who knows how to run it. I will be... pleasantly surprised if either of you actually reads this but hey. A girl can dream.
 
 All of the bot code is in the [actual_bot_code](actuual_bot_code) directory. You may see some repeated files/directories in there that also exist elsewhere in this repo. Could I refactor that? Possibly. Am I going to? No. Also this way it's really easy to just upload the whole directory w/ everything you need to the pi at once.
 
