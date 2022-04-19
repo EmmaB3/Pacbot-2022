@@ -2,7 +2,7 @@
 
 import os, sys
 import robomodules as rm
-from messages import MsgType, message_buffers, PacmanDirection, PacmanState
+from messages import MsgType, message_buffers, PacmanDirection, PacmanState, LightState
 from Node import manhattanDist
 from variables import *
 from grid import *
@@ -84,7 +84,7 @@ class AIModule(rm.ProtoModule):
             msg = PacmanDirection()
             msg.direction = char_to_direction[out_char]
 
-            self.write(msg.SerializeToString(), MsgType.PACMAN_LOCATION)
+            self.write(msg.SerializeToString(), MsgType.PACMAN_DIRECTION)
 
     def _pick_direction(self):
         
@@ -92,7 +92,7 @@ class AIModule(rm.ProtoModule):
         
         ghosts = [self.state.red_ghost, self.state.pink_ghost, self.state.blue_ghost, self.state.orange_ghost]
 
-        frightened = [ghost for ghost in ghosts if ghost.frightened_counter > 0]
+        frightened = [ghost for ghost in ghosts if ghost.state == LightState.FRIGHTENED]
 
         if len(frightened) != 0:
             self.timer -= 1 # do this
