@@ -14,13 +14,20 @@ from variables import *
 ADDRESS = os.environ.get("LOCAL_ADDRESS","localhost")
 PORT = os.environ.get("LOCAL_PORT", 11295)
 
-FREQUENCY = 60
+FREQUENCY = 1000
 
 TURN_LEFT_YAW = 9.90
 TURN_RIGHT_YAW = 9.90
 TURN_AROUND_YAW = 20.25
 
-YAW_ALLOWANCE = 0.03
+YAW_ALLOWANCE = 0.001
+
+RIGHT_MOTOR_OFFSET = 0.03
+
+# distance sensor indices
+CENTER = 0
+LEFT = 1
+RIGHT = 2
 
 
 class DriveMode(Enum):
@@ -69,9 +76,9 @@ class MotorModule(rm.ProtoModule):
                 tca[channel].unlock()
 
         self.dist_sensors = [
-            DistanceSensor('forward', tca[1], self._stop),
-            DistanceSensor('left', tca[0], self._veer_right),
-            DistanceSensor('right', tca[2], self._veer_left)
+            DistanceSensor('forward', tca[1], self._stop, 50),
+            DistanceSensor('left', tca[0], self._veer_right, 20),
+            DistanceSensor('right', tca[2], self._veer_left, 20)
         ]
 
     def msg_received(self, msg, msg_type):
@@ -87,6 +94,9 @@ class MotorModule(rm.ProtoModule):
         #         self.mode = DriveMode.STOPPED
         # if told to stop, stop
         # print(f'desired: {self.desired_direction} current: {self.current_direction}')
+        if self.dist_sensors[CENTER].is_too_close():
+            self.desired_direction = PacmanDirection.STOP
+ 
         if self.desired_direction == PacmanDirection.STOP:
             if self.mode != DriveMode.STOPPED:
                 self.mode = DriveMode.STOPPED
@@ -95,7 +105,7 @@ class MotorModule(rm.ProtoModule):
             self.mode = DriveMode.TURNING
         else:
             self.mode = DriveMode.STRAIGHT
-        
+
         if self.mode == DriveMode.TURNING:
             print(f'desired: {self.desired_direction}, current: {self.current_direction}')
             # starting turn
@@ -112,7 +122,7 @@ class MotorModule(rm.ProtoModule):
                 done = self._turn_right()
             else:
                 done = self._turn_left()
-            
+
             # completing turn
             if done:
                 self.yaw = 0
@@ -122,7 +132,9 @@ class MotorModule(rm.ProtoModule):
                 # self.mode = DriveMode.STOPPED # TEMP
 
         elif self.mode == DriveMode.STRAIGHT:
-            self._drive_straight_gyro()
+            self._drive_straight()
+        else:
+            self.desired_direction = PacmanDirection.STOP
 
     # returns turn direction (enum value)
     def _pick_turn_direction(self):
@@ -139,21 +151,41 @@ class MotorModule(rm.ProtoModule):
             return TurnDirection.RIGHT
         else:  # theoretically this should not happen
             return None
-    
+
+    def _drive_straight(self):
+        print(f'left dist sensor {self.dist_sensors[LEFT].range}, right dist sensor {self.dist_sensors[RIGHT].range}')
+        if self.dist_sensors[LEFT].is_too_close():
+            print('swerving to avoid left wall')
+            self.dist_sensors[LEFT].avoid()
+        elif self.dist_sensors[RIGHT].is_too_close():
+            print('swerving to avoid right wall')
+            self.dist_sensors[RIGHT].avoid()
+        else:
+            print('driving straight with gyro')
+            self._drive_straight_gyro()
+
     def _drive_straight_gyro(self):
+        left_speed = 0.6
+        right_speed = 0.6 + RIGHT_MOTOR_OFFSET
         self.yaw += (1.0 / FREQUENCY) * self.gyro.value
+        print(f'yaw: {self.yaw}')
+        motor_speedup = 10 * abs(self.yaw)
+        print(f'motor speedup {motor_speedup}')
         if self.yaw < - YAW_ALLOWANCE:
             print("gotta go left")
-            self.left_motor.forward(0.5)
-            self.right_motor.forward(0.7)
+            right_speed += motor_speedup
         elif self.yaw > YAW_ALLOWANCE:
             print("gotta go right")
-            self.left_motor.forward(0.7)
-            self.right_motor.forward(0.5)
+            left_speed += motor_speedup
         else:
             print("onwards")
-            self.left_motor.forward(0.6)
-            self.right_motor.forward(0.6)
+        if self.dist_sensors[CENTER].obstructed():
+            print('obstructed!')
+            left_speed = left_speed * 0.5
+            right_speed = right_speed * 0.5
+        print(f'left speed: {left_speed}, right speed: {right_speed}')
+        self.left_motor.forward(min(1.0, left_speed))
+        self.right_motor.forward(min(1.0, right_speed))
 
     def _drive_straight_dist_sensors(self):
         is_straight = True  # homophobia
@@ -166,30 +198,30 @@ class MotorModule(rm.ProtoModule):
                 break
             else:
                 print(f'no action needed for {sensor} sensor')
-        
+
         if is_straight:
             self._drive_forward(0.3)
-    
+
     def _veer_left(self):
         print('veering left')
         self.left_motor.forward(0.3)
-        self.right_motor.forward(0.7)
-    
+        self.right_motor.forward(0.6 + RIGHT_MOTOR_OFFSET)
+
     def _veer_right(self):
         print('veering right')
-        self.left_motor.forward(0.7)
-        self.right_motor.forward(0.3)
-    
+        self.left_motor.forward(0.6)
+        self.right_motor.forward(0.3 + RIGHT_MOTOR_OFFSET)
+
     def _stop(self):
         print('stop')
         self.left_motor.stop()
         self.right_motor.stop()
-    
+
     def _drive_forward(self, speed):
         print(f'driving forward at speed {speed}')
         self.left_motor.forward(speed)
         self.right_motor.forward(speed)
-    
+
     # returns whether or not it's done turning
     def _turn(self, target, left):
         self.yaw += (1.0 / FREQUENCY) * self.gyro.value
@@ -204,17 +236,17 @@ class MotorModule(rm.ProtoModule):
             return False
         else:
             return True
-    
+
     # returns whether or not it's done turning
     def _turn_right(self):
         print('turning right')
         return self._turn(TURN_RIGHT_YAW, False)
-    
+
     # returns whether or not it's done turning
     def _turn_left(self):
         print('turning left')
         return self._turn(TURN_LEFT_YAW, True)
-    
+
     # returns whether or not it's done turning
     def _turn_around(self):
         print('turning around')

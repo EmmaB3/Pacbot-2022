@@ -21,6 +21,7 @@ class Gyro:
     def __init__(self):
         self.bus = smbus.SMBus(1)
         self.Device_Address = 0x68
+        self._MPU_Init()
         init_gyro_z = self._read_raw_data(GYRO_ZOUT_H) 
         self.init_Gz = init_gyro_z / SCALE_FACTOR
 
@@ -55,6 +56,5 @@ class Gyro:
     
     @property
     def value(self):
-        print('raw gyro value', self._read_raw_data(GYRO_ZOUT_H))
         Gz = self._read_raw_data(GYRO_ZOUT_H) / SCALE_FACTOR
         return Gz - self.init_Gz

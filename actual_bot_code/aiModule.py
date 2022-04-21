@@ -2,15 +2,13 @@
 
 import os, sys
 import robomodules as rm
-from messages import MsgType, message_buffers, PacmanDirection, PacmanState, LightState
+from messages import MsgType, message_buffers, PacmanDirection, LightState
 from Node import manhattanDist
 from variables import *
 from grid import *
 import numpy as np
 
 ###### AI INPUT STUFF ########
-import random
-from time import sleep
 import smarterInput
 ##############################
 
