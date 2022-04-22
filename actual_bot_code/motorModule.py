@@ -7,20 +7,19 @@ import robomodules as rm
 from enum import Enum
 from distanceSensor import DistanceSensor
 from gpiozero import PhaseEnableMotor
-from gyro import Gyro
-from messages import MsgType, message_buffers, PacmanDirection
+from messages import MsgType, message_buffers, PacmanDirection, GyroYaw
 from variables import *
 
 ADDRESS = os.environ.get("LOCAL_ADDRESS","localhost")
 PORT = os.environ.get("LOCAL_PORT", 11295)
 
-FREQUENCY = 1000
+FREQUENCY = 100
 
 TURN_LEFT_YAW = 9.90
 TURN_RIGHT_YAW = 9.90
 TURN_AROUND_YAW = 20.25
 
-YAW_ALLOWANCE = 0.001
+YAW_ALLOWANCE = 0.1
 
 RIGHT_MOTOR_OFFSET = 0.03
 
@@ -46,7 +45,7 @@ class TurnDirection(Enum):
 #   based off gyro value when turning? maybe
 class MotorModule(rm.ProtoModule):
     def __init__(self, addr, port):
-        self.subscriptions = [MsgType.PACMAN_DIRECTION]
+        self.subscriptions = [MsgType.PACMAN_DIRECTION, MsgType.GYRO_YAW]
         super().__init__(addr, port, message_buffers, MsgType, FREQUENCY, self.subscriptions)
         self.state = None
         self.current_direction = PacmanDirection.W
@@ -55,7 +54,6 @@ class MotorModule(rm.ProtoModule):
         self.turn_direction = None
 
         # gyro
-        self.gyro = Gyro()
         self.yaw = 0
 
         # motors
@@ -84,9 +82,12 @@ class MotorModule(rm.ProtoModule):
     def msg_received(self, msg, msg_type):
         if msg_type == MsgType.PACMAN_DIRECTION:
             self.desired_direction = msg.direction
-        print(f'got message {msg}')
+            print(f'got direction {msg}')
+        elif msg_type == MsgType.GYRO_YAW:
+            self.yaw = msg.yaw
 
     def tick(self):
+        print(f'yaw {self.yaw}')
         # if self.mode != DriveMode.STOPPED:
         #     done = self._turn_right(5.69)
         #     if done:
@@ -96,8 +97,9 @@ class MotorModule(rm.ProtoModule):
         # print(f'desired: {self.desired_direction} current: {self.current_direction}')
         if self.dist_sensors[CENTER].is_too_close():
             self.desired_direction = PacmanDirection.STOP
- 
+
         if self.desired_direction == PacmanDirection.STOP:
+            self._zero_gyro()
             if self.mode != DriveMode.STOPPED:
                 self.mode = DriveMode.STOPPED
                 self._stop()
@@ -110,7 +112,7 @@ class MotorModule(rm.ProtoModule):
             print(f'desired: {self.desired_direction}, current: {self.current_direction}')
             # starting turn
             if self.turn_direction is None:
-                self.yaw = 0
+                self._zero_gyro()
                 self.turn_direction = self._pick_turn_direction()
                 print(f'zeroing yaw, turn direction {self.turn_direction}')
 
@@ -125,7 +127,7 @@ class MotorModule(rm.ProtoModule):
 
             # completing turn
             if done:
-                self.yaw = 0
+                self._zero_gyro()
                 self.current_direction = self.desired_direction
                 self.turn_direction = None
                 # self._stop() # TEMP
@@ -135,6 +137,11 @@ class MotorModule(rm.ProtoModule):
             self._drive_straight()
         else:
             self.desired_direction = PacmanDirection.STOP
+
+    def _zero_gyro(self):
+        msg = GyroYaw()
+        msg.yaw = 0
+        self.write(msg.SerializeToString(), MsgType.GYRO_YAW)
 
     # returns turn direction (enum value)
     def _pick_turn_direction(self):
@@ -167,9 +174,9 @@ class MotorModule(rm.ProtoModule):
     def _drive_straight_gyro(self):
         left_speed = 0.6
         right_speed = 0.6 + RIGHT_MOTOR_OFFSET
-        self.yaw += (1.0 / FREQUENCY) * self.gyro.value
+        # self.yaw += (1.0 / FREQUENCY) * self.gyro.value
         print(f'yaw: {self.yaw}')
-        motor_speedup = 10 * abs(self.yaw)
+        motor_speedup = 0.5 * abs(self.yaw)
         print(f'motor speedup {motor_speedup}')
         if self.yaw < - YAW_ALLOWANCE:
             print("gotta go left")
@@ -224,7 +231,7 @@ class MotorModule(rm.ProtoModule):
 
     # returns whether or not it's done turning
     def _turn(self, target, left):
-        self.yaw += (1.0 / FREQUENCY) * self.gyro.value
+        # self.yaw += (1.0 / FREQUENCY) * self.gyro.value
         print(f'yaw: {self.yaw}, target: {target}, gyro value: {self.gyro.value}')
         if abs(self.yaw) < target:
             if left:
