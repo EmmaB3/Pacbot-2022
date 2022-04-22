@@ -44,7 +44,7 @@ class Node:
         for nx, ny in neighborPos:
             if self.grid[nx][ny] not in [I, n]:
                 if self.grid[nx][ny] in self.ghostPos: #Fix this
-                    newCost = 9999 * (-1 if self.avoid else 1)
+                    newCost += 9999 # * (0 if self.avoid else 1)
                 else:
                     newCost += (1 + manhattanDist((nx, ny), self.goalPos)) * (-1 if self.avoid else 1)
                     if self.ghostPos:
