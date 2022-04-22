@@ -7,6 +7,7 @@ import robomodules as rm
 from enum import Enum
 from distanceSensor import DistanceSensor
 from gpiozero import PhaseEnableMotor
+from gyro import Gyro
 from messages import MsgType, message_buffers, PacmanDirection, GyroYaw
 from variables import *
 
@@ -15,13 +16,15 @@ PORT = os.environ.get("LOCAL_PORT", 11295)
 
 FREQUENCY = 100
 
-TURN_LEFT_YAW = 9.90
-TURN_RIGHT_YAW = 9.90
+TURN_LEFT_YAW = 5.0
+TURN_RIGHT_YAW = 5.0
 TURN_AROUND_YAW = 20.25
 
 YAW_ALLOWANCE = 0.1
 
 RIGHT_MOTOR_OFFSET = 0.03
+
+YAW_MULTIPLIER = 0.1
 
 # distance sensor indices
 CENTER = 0
@@ -87,7 +90,7 @@ class MotorModule(rm.ProtoModule):
             self.yaw = msg.yaw
 
     def tick(self):
-        print(f'yaw {self.yaw}')
+        # print(f'yaw {self.yaw}')
         # if self.mode != DriveMode.STOPPED:
         #     done = self._turn_right(5.69)
         #     if done:
@@ -141,6 +144,7 @@ class MotorModule(rm.ProtoModule):
     def _zero_gyro(self):
         msg = GyroYaw()
         msg.yaw = 0
+        self.yaw = 0
         self.write(msg.SerializeToString(), MsgType.GYRO_YAW)
 
     # returns turn direction (enum value)
@@ -176,7 +180,7 @@ class MotorModule(rm.ProtoModule):
         right_speed = 0.6 + RIGHT_MOTOR_OFFSET
         # self.yaw += (1.0 / FREQUENCY) * self.gyro.value
         print(f'yaw: {self.yaw}')
-        motor_speedup = 0.5 * abs(self.yaw)
+        motor_speedup = YAW_MULTIPLIER * (abs(self.yaw) - YAW_ALLOWANCE)
         print(f'motor speedup {motor_speedup}')
         if self.yaw < - YAW_ALLOWANCE:
             print("gotta go left")
@@ -232,14 +236,15 @@ class MotorModule(rm.ProtoModule):
     # returns whether or not it's done turning
     def _turn(self, target, left):
         # self.yaw += (1.0 / FREQUENCY) * self.gyro.value
-        print(f'yaw: {self.yaw}, target: {target}, gyro value: {self.gyro.value}')
+        turn_speed = 0.05 + min((target - abs(self.yaw)) * 0.25, 0.5)
+        print(f'yaw: {self.yaw}, target: {target}, speed: {turn_speed}')
         if abs(self.yaw) < target:
             if left:
-                self.left_motor.backward(0.3)
-                self.right_motor.forward(0.3)
+                self.left_motor.backward(turn_speed)
+                self.right_motor.forward(turn_speed)
             else:
-                self.left_motor.forward(0.3)
-                self.right_motor.backward(0.3)
+                self.left_motor.forward(turn_speed)
+                self.right_motor.backward(turn_speed)
             return False
         else:
             return True
