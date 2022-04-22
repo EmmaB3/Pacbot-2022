@@ -26,7 +26,7 @@ class DistanceSensor:
             return False
     
     def obstructed(self):
-        return self.range < 255
+        return self.range < 100
     
     def __str__(self):
         return self.name

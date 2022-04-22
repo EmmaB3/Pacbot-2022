@@ -16,13 +16,15 @@ PORT = os.environ.get("LOCAL_PORT", 11295)
 
 FREQUENCY = 1000
 
-TURN_LEFT_YAW = 0.15
-TURN_RIGHT_YAW = 0.15
-TURN_AROUND_YAW = 0.3
+TURN_LEFT_YAW = 0.23
+TURN_RIGHT_YAW = 0.23
+TURN_AROUND_YAW = 0.4
 
 YAW_ALLOWANCE = 0.001
 
-RIGHT_MOTOR_OFFSET = 0.03
+RIGHT_MOTOR_OFFSET = 0
+
+MIN_SPEED = 0.1
 
 # distance sensor indices
 CENTER = 0
@@ -110,6 +112,7 @@ class MotorModule(rm.ProtoModule):
             print(f'desired: {self.desired_direction}, current: {self.current_direction}')
             # starting turn
             if self.turn_direction is None:
+                self._stop()
                 self.yaw = 0
                 self.turn_direction = self._pick_turn_direction()
                 print(f'zeroing yaw, turn direction {self.turn_direction}')
@@ -128,11 +131,12 @@ class MotorModule(rm.ProtoModule):
                 self.yaw = 0
                 self.current_direction = self.desired_direction
                 self.turn_direction = None
-                # self._stop() # TEMP
+                self._stop()
                 # self.mode = DriveMode.STOPPED # TEMP
 
         elif self.mode == DriveMode.STRAIGHT:
             self._drive_straight()
+            # self._drive(MIN_SPEED, MIN_SPEED)
         else:
             self.desired_direction = PacmanDirection.STOP
 
@@ -222,18 +226,26 @@ class MotorModule(rm.ProtoModule):
         self.left_motor.forward(speed)
         self.right_motor.forward(speed)
 
+    def _drive(self, left_speed, right_speed):
+        if left_speed < 0:
+            self.left_motor.backward(-left_speed)
+        else:
+            self.left_motor.forward(left_speed)
+        if right_speed < 0:
+            self.right_motor.backward(-right_speed)
+        else:
+            self.right_motor.forward(right_speed)
+
     # returns whether or not it's done turning
     def _turn(self, target, left):
         self.yaw += ((1.0 / FREQUENCY) * self.gyro.value)
-        turn_speed = 0.1 + min(0.5, 10 * (target - abs(self.yaw)))
+        turn_speed = MIN_SPEED + min(0.1, 10 * (target - abs(self.yaw)))
         print(f'yaw: {self.yaw}, target: {target}, turn speed: {turn_speed}')
         if abs(self.yaw) < target:
             if left:
-                self.left_motor.backward(turn_speed)
-                self.right_motor.forward(turn_speed)
+                self._drive(-turn_speed, turn_speed)
             else:
-                self.left_motor.forward(turn_speed)
-                self.right_motor.backward(turn_speed)
+                self._drive(turn_speed, -turn_speed)
             return False
         else:
             return True

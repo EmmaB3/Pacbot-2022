@@ -3,6 +3,7 @@ import adafruit_tca9548a
 import board
 import os
 import robomodules as rm
+import time
 
 from enum import Enum
 from distanceSensor import DistanceSensor
@@ -14,17 +15,19 @@ from variables import *
 ADDRESS = os.environ.get("LOCAL_ADDRESS","localhost")
 PORT = os.environ.get("LOCAL_PORT", 11295)
 
-FREQUENCY = 100
+FREQUENCY = 60
 
-TURN_LEFT_YAW = 5.0
-TURN_RIGHT_YAW = 5.0
-TURN_AROUND_YAW = 20.25
+TURN_LEFT_YAW = 7.5
+TURN_RIGHT_YAW = 7.5
+TURN_AROUND_YAW = 15.0
 
-YAW_ALLOWANCE = 0.1
+YAW_ALLOWANCE = 0.05
 
 RIGHT_MOTOR_OFFSET = 0.0
 
 YAW_MULTIPLIER = 0.1
+
+TICK_WAIT = 5
 
 # distance sensor indices
 CENTER = 0
@@ -55,6 +58,7 @@ class MotorModule(rm.ProtoModule):
         self.desired_direction = PacmanDirection.STOP
         self.mode = None
         self.turn_direction = None
+        self.tick_counter = 0
 
         # gyro
         self.yaw = 0
@@ -77,9 +81,9 @@ class MotorModule(rm.ProtoModule):
                 tca[channel].unlock()
 
         self.dist_sensors = [
-            DistanceSensor('forward', tca[1], self._stop, 50),
-            DistanceSensor('left', tca[0], self._veer_right, 20),
-            DistanceSensor('right', tca[2], self._veer_left, 20)
+            DistanceSensor('forward', tca[1], self._stop, 70),
+            DistanceSensor('left', tca[0], self._veer_right, 40),
+            DistanceSensor('right', tca[2], self._veer_left, 40)
         ]
 
     def msg_received(self, msg, msg_type):
@@ -98,8 +102,8 @@ class MotorModule(rm.ProtoModule):
         #         self.mode = DriveMode.STOPPED
         # if told to stop, stop
         # print(f'desired: {self.desired_direction} current: {self.current_direction}')
-        if self.dist_sensors[CENTER].is_too_close():
-            self.desired_direction = PacmanDirection.STOP
+        if self.tick_counter > 0:
+            self.tick_counter -= 1
 
         if self.desired_direction == PacmanDirection.STOP:
             self._zero_gyro()
@@ -130,14 +134,19 @@ class MotorModule(rm.ProtoModule):
 
             # completing turn
             if done:
+                self.tick_counter = TICK_WAIT 
                 self._zero_gyro()
+                self._stop()
                 self.current_direction = self.desired_direction
                 self.turn_direction = None
                 # self._stop() # TEMP
                 # self.mode = DriveMode.STOPPED # TEMP
 
         elif self.mode == DriveMode.STRAIGHT:
-            self._drive_straight()
+            if self.tick_counter == 0 and not self.dist_sensors[CENTER].is_too_close():
+                self._drive_straight()
+            else:
+                self._stop()
         else:
             self.desired_direction = PacmanDirection.STOP
 
@@ -216,11 +225,11 @@ class MotorModule(rm.ProtoModule):
     def _veer_left(self):
         print('veering left')
         self.left_motor.forward(0.3)
-        self.right_motor.forward(0.6 + RIGHT_MOTOR_OFFSET)
+        self.right_motor.forward(0.4 + RIGHT_MOTOR_OFFSET)
 
     def _veer_right(self):
         print('veering right')
-        self.left_motor.forward(0.6)
+        self.left_motor.forward(0.4)
         self.right_motor.forward(0.3 + RIGHT_MOTOR_OFFSET)
 
     def _stop(self):
@@ -236,7 +245,7 @@ class MotorModule(rm.ProtoModule):
     # returns whether or not it's done turning
     def _turn(self, target, left):
         # self.yaw += (1.0 / FREQUENCY) * self.gyro.value
-        turn_speed = 0.05 + min((target - abs(self.yaw)) * 0.25, 0.5)
+        turn_speed = 0.1 + min((target - abs(self.yaw)) * 0.25, 0.3)
         print(f'yaw: {self.yaw}, target: {target}, speed: {turn_speed}')
         if abs(self.yaw) < target:
             if left:
@@ -268,6 +277,9 @@ class MotorModule(rm.ProtoModule):
 def main():
     module = MotorModule(ADDRESS, PORT)
     module.run()
+    # while True:
+    #     print(f'left: {module.dist_sensors[LEFT].range} right: {module.dist_sensors[RIGHT].range}')
+    #     time.sleep(0.1)
 
 
 if __name__ == "__main__":
