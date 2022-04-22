@@ -224,15 +224,16 @@ class MotorModule(rm.ProtoModule):
 
     # returns whether or not it's done turning
     def _turn(self, target, left):
-        self.yaw += (1.0 / FREQUENCY) * self.gyro.value
-        print(f'yaw: {self.yaw}, target: {target}, gyro value: {self.gyro.value}')
+        self.yaw += ((1.0 / FREQUENCY) * self.gyro.value)
+        turn_speed = 0.1 + min(0.5, 10 * (target - abs(self.yaw)))
+        print(f'yaw: {self.yaw}, target: {target}, turn speed: {turn_speed}')
         if abs(self.yaw) < target:
             if left:
-                self.left_motor.backward(0.3)
-                self.right_motor.forward(0.3)
+                self.left_motor.backward(turn_speed)
+                self.right_motor.forward(turn_speed)
             else:
-                self.left_motor.forward(0.3)
-                self.right_motor.backward(0.3)
+                self.left_motor.forward(turn_speed)
+                self.right_motor.backward(turn_speed)
             return False
         else:
             return True

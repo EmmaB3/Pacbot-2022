@@ -141,7 +141,7 @@ class InputModule(rm.ProtoModule):
                                                     goal_pos, non_scared_ghosts, False)
             else:
                 outChar = 'q'
-            
+                
             # updating position
             print("dir: " + str(outChar))
             if outChar == 'a':
@@ -168,12 +168,7 @@ class InputModule(rm.ProtoModule):
 
     # returns goal pos
     def _pick_goal(self, ghosts, grid):
-        if self.state.cherry and manhattanDist(self.pacbot_pos, FRUIT_POS) <= SQUARES_PER_SEC * (self.fruit_timer / FREQUENCY):
-            print('going for fruit!!!!')
-            return FRUIT_POS
-        if self.state.cherry:
-            print('CHERRY TOO FAR', self.fruit_timer, manhattanDist(self.pacbot_pos, FRUIT_POS))
-        
+
         frightened_ghosts = [ghost for ghost in ghosts if ghost.state == LightState.GhostState.FRIGHTENED]
 
         if len(frightened_ghosts) != 0:
@@ -188,6 +183,12 @@ class InputModule(rm.ProtoModule):
                 return goalPos
             print('GHOSTS TOO FAR', self.ghost_timer, goalPos)
         
+        if self.state.cherry and manhattanDist(self.pacbot_pos, FRUIT_POS) <= SQUARES_PER_SEC * (self.fruit_timer / FREQUENCY):
+            print('going for fruit!!!!')
+            return FRUIT_POS
+        if self.state.cherry:
+            print('CHERRY TOO FAR', self.fruit_timer, manhattanDist(self.pacbot_pos, FRUIT_POS))
+                
         powerPos = [(1, 7), (1, 27), (26, 7), (26, 27)]
         closestPower = []
         for index in range(len(powerPos) -1, -1, -1):
@@ -239,19 +240,6 @@ class InputModule(rm.ProtoModule):
             y = GRID_HEIGHT - 2
         else:
             y = 1
-        # mirror_pos = (GRID_WIDTH - pos[0], GRID_HEIGHT - pos[1])
-
-        # while self.grid[mirror_pos[0]][mirror_pos[1]] not in [o, e] or mirror_pos == self.pacbot_pos:
-        #     print(mirror_pos)
-        #     if mirror_pos[0] > GRID_WIDTH / 2:
-        #         mirror_pos = (mirror_pos[0] - 1, mirror_pos[1])
-        #     else:
-        #         mirror_pos = (mirror_pos[0] + 1, mirror_pos[1])
-            
-        #     if mirror_pos[1] > GRID_HEIGHT / 2:
-        #         mirror_pos = (mirror_pos[0], mirror_pos[1] - 1)
-        #     else:
-        #         mirror_pos = (mirror_pos[0], mirror_pos[1] + 1)
 
         return (x, y)
 
