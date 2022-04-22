@@ -201,6 +201,7 @@ class InputModule(rm.ProtoModule):
         if len(closestPower) != 0:
             goalPos = powerPos[np.argmin(closestPower)]
             print(f'going for power pellet at {goalPos}')
+            # HERE IS THE LINE FOR STALLING
             if self._should_eat_pellet(goalPos, ghosts):
                 return goalPos
             return None
