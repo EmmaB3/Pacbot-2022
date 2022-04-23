@@ -1,4 +1,5 @@
 import smbus
+import time
 
 
 # some MPU6050 Registers and their Address
@@ -20,6 +21,7 @@ SCALE_FACTOR = 131.0
 class Gyro:
     def __init__(self):
         self.bus = smbus.SMBus(1)
+        time.sleep(0.5)
         self.Device_Address = 0x68
         self._MPU_Init()
         init_gyro_z = self._read_raw_data(GYRO_ZOUT_H) 
