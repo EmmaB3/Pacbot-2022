@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 from motorModule import MotorModule
+from distanceSensor import DistanceSensor
 
 ADDRESS = os.environ.get("LOCAL_ADDRESS","localhost")
 PORT = os.environ.get("LOCAL_PORT", 11295)
@@ -10,10 +11,18 @@ class ReversibleMotorModule(MotorModule):
     def __init__(self, addr, port):
         super().__init__(addr, port)
         self.reversed = False
-    
+        self.back_dist = DistanceSensor('left', self.tca[0], self._stop, 40)
+
     def _turn_around(self):
         print('overridden turning around')
+        # flip reversed flag
         self.reversed = not self.reversed
+
+        # flip front and back distance sensors
+        temp = self.front_dist
+        self.front_dist = self.back_dist
+        self.back_dist = temp
+    
         return True
 
     @property

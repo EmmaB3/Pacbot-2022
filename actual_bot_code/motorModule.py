@@ -4,6 +4,7 @@ import board
 import os
 import robomodules as rm
 
+from simple_pid import PID
 from enum import Enum
 from distanceSensor import DistanceSensor
 from gpiozero import PhaseEnableMotor
@@ -13,19 +14,21 @@ from variables import *
 ADDRESS = os.environ.get("LOCAL_ADDRESS","localhost")
 PORT = os.environ.get("LOCAL_PORT", 11295)
 
-FREQUENCY = 60
+FREQUENCY = 100
 
 TURN_LEFT_YAW = 7.5
 TURN_RIGHT_YAW = 7.5
-TURN_AROUND_YAW = 15.0
+TURN_AROUND_YAW = 16.0
 
-YAW_ALLOWANCE = 0.05
+YAW_ALLOWANCE = 0.01
 
 RIGHT_MOTOR_OFFSET = 0.0
 
-YAW_MULTIPLIER = 0.1
+YAW_MULTIPLIER = 0.15
 
 TICK_WAIT = 5
+
+BASE_SPEED = 0.6
 
 # distance sensor indices
 CENTER = 0
@@ -52,14 +55,17 @@ class MotorModule(rm.ProtoModule):
         self.subscriptions = [MsgType.PACMAN_DIRECTION, MsgType.GYRO_YAW]
         super().__init__(addr, port, message_buffers, MsgType, FREQUENCY, self.subscriptions)
         self.state = None
-        self.current_direction = PacmanDirection.W
+        self.current_direction = PacmanDirection.D
         self.desired_direction = PacmanDirection.STOP
         self.mode = None
         self.turn_direction = None
         self.tick_counter = 0
-
-        # gyro
         self._yaw = 0
+        
+        # set up pid
+        self.pid = PID(0.1, 0.01, 0.005, setpoint=0, sample_time=1.0/FREQUENCY)
+        self.pid.output_limits = (-0.15, 0.15)
+        self.pid.auto_mode = False
 
         # motors
         self.left_motor = PhaseEnableMotor(5, 12)
@@ -68,21 +74,24 @@ class MotorModule(rm.ProtoModule):
         # distance sensors-- should these be their own module?? worried about 
         #   the latency though
         i2c = board.I2C()
-        tca = adafruit_tca9548a.TCA9548A(i2c)
+        self.tca = adafruit_tca9548a.TCA9548A(i2c)
 
         # no clue what this does but i assume it's important
         for channel in range(8):
-            if tca[channel].try_lock():
+            if self.tca[channel].try_lock():
                 print("Channel {}:".format(channel), end="")
-                addresses = tca[channel].scan()
+                addresses = self.tca[channel].scan()
                 print([hex(address) for address in addresses if address != 0x70])
-                tca[channel].unlock()
+                self.tca[channel].unlock()
 
-        self.dist_sensors = [
-            DistanceSensor('forward', tca[1], self._stop, 70),
-            DistanceSensor('left', tca[0], self._veer_right, 40),
-            DistanceSensor('right', tca[2], self._veer_left, 40)
-        ]
+        self.left_dist = DistanceSensor('left', self.tca[0], self._veer_right, 40)
+        self.right_dist = DistanceSensor('right', self.tca[2], self._veer_left, 40)
+        self.front_dist = DistanceSensor('forward', self.tca[1], self._stop, 60)
+        # self.dist_sensors = [
+        #     DistanceSensor('forward', tca[1], self._stop, 70),
+        #     DistanceSensor('left', tca[0], self._veer_right, 40),
+        #     DistanceSensor('right', tca[2], self._veer_left, 40)
+        # ]
 
     @property
     def yaw(self):
@@ -121,7 +130,8 @@ class MotorModule(rm.ProtoModule):
             print(f'desired: {self.desired_direction}, current: {self.current_direction}')
             # starting turn
             if self.turn_direction is None:
-                self._zero_gyro()
+                # self._zero_gyro()
+                self._stop()
                 self.turn_direction = self._pick_turn_direction()
                 print(f'zeroing yaw, turn direction {self.turn_direction}')
 
@@ -145,9 +155,11 @@ class MotorModule(rm.ProtoModule):
                 # self.mode = DriveMode.STOPPED # TEMP
 
         elif self.mode == DriveMode.STRAIGHT:
-            if self.tick_counter == 0 and not self.dist_sensors[CENTER].is_too_close():
+            if self.tick_counter == 0 and not self.front_dist.is_too_close():
+                self.pid.auto_mode = True
                 self._drive_straight()
             else:
+                self.pid.auto_mode = False
                 self._stop()
         else:
             self.desired_direction = PacmanDirection.STOP
@@ -175,23 +187,24 @@ class MotorModule(rm.ProtoModule):
             return None
 
     def _drive_straight(self):
-        print(f'left dist sensor {self.dist_sensors[LEFT].range}, right dist sensor {self.dist_sensors[RIGHT].range}')
-        if self.dist_sensors[LEFT].is_too_close():
+        print(f'left dist sensor {self.left_dist.range}, right dist sensor {self.right_dist.range}')
+        if self.left_dist.is_too_close():
             print('swerving to avoid left wall')
-            self.dist_sensors[LEFT].avoid()
-        elif self.dist_sensors[RIGHT].is_too_close():
+            self.left_dist.avoid()
+        elif self.right_dist.is_too_close():
             print('swerving to avoid right wall')
-            self.dist_sensors[RIGHT].avoid()
+            self.right_dist.avoid()
         else:
             print('driving straight with gyro')
             self._drive_straight_gyro()
 
     def _drive_straight_gyro(self):
-        left_speed = 0.8
-        right_speed = 0.8 + RIGHT_MOTOR_OFFSET
+        left_speed = BASE_SPEED
+        right_speed = BASE_SPEED + RIGHT_MOTOR_OFFSET
         # self.yaw += (1.0 / FREQUENCY) * self.gyro.value
         print(f'yaw: {self.yaw}')
-        motor_speedup = YAW_MULTIPLIER * (abs(self.yaw) - YAW_ALLOWANCE)
+        motor_speedup = min(0.15, YAW_MULTIPLIER * (abs(self.yaw)))
+        # motor_speedup = abs(self.pid(self.yaw))
         print(f'motor speedup {motor_speedup}')
         if self.yaw < - YAW_ALLOWANCE:
             print("gotta go left")
@@ -201,7 +214,7 @@ class MotorModule(rm.ProtoModule):
             left_speed += motor_speedup
         else:
             print("onwards")
-        if self.dist_sensors[CENTER].obstructed():
+        if self.front_dist.obstructed():
             print('obstructed!')
             left_speed = left_speed * 0.5
             right_speed = right_speed * 0.5
@@ -242,7 +255,6 @@ class MotorModule(rm.ProtoModule):
         self._drive(0.4, 0.3 + RIGHT_MOTOR_OFFSET)
 
     def _stop(self):
-        print('stop')
         self.left_motor.stop()
         self.right_motor.stop()
 
