@@ -32,12 +32,15 @@ SQUARES_PER_SEC = SPEED * FREQUENCY
 FRUIT_TIME = 10 * FREQUENCY
 FRIGHTENED_TIME = 20 * FREQUENCY
 
+GRID_WIDTH = len(grid)
+GRID_HEIGHT = len(grid[0])
+
 char_to_direction = {
     'w': PacmanDirection.W,
     'a': PacmanDirection.A,
     's': PacmanDirection.S,
     'd': PacmanDirection.D,
-    'stop': PacmanDirection.STOP
+    'q': PacmanDirection.STOP
 }
 
 class AIModule(rm.ProtoModule):
@@ -80,6 +83,7 @@ class AIModule(rm.ProtoModule):
         # This module only sends data, so we ignore incoming messages
         if msg_type == MsgType.LIGHT_STATE:
             self.state = msg
+            self.pacbot_pos = (msg.pacman.x, msg.pacman.y)
             if self.state.lives != self.lives:
                 self.lives = self.state.lives
                 self.pacbot_pos = [pacbot_starting_pos[0], pacbot_starting_pos[1]]
@@ -114,25 +118,22 @@ class AIModule(rm.ProtoModule):
 
             non_scared_ghosts = [ghost for ghost in ghosts if ghost.state != LightState.GhostState.FRIGHTENED]
 
-            goal_pos = self._pick_goal()
+            goal_pos = self._pick_goal(ghosts, self.grid)
 
-            out_char = smarterInput.whichWayAStar(self.grid, self.pacbot_pos, 
-                                                        goal_pos, non_scared_ghosts, self.avoid)
-
+            if goal_pos is not None:
+                out_char = smarterInput.whichWayAStar(self.grid, self.pacbot_pos, 
+                                                        goal_pos, non_scared_ghosts, False)
+            else:
+                out_char = 'q'
+            print('OUT CHAR: ' + out_char)
             msg.direction = char_to_direction[out_char]
         else:
             msg.direction = PacmanDirection.STOP
 
         self.write(msg.SerializeToString(), MsgType.PACMAN_DIRECTION)
-    
+
     # returns goal pos
     def _pick_goal(self, ghosts, grid):
-        if self.state.cherry and manhattanDist(self.pacbot_pos, FRUIT_POS) <= SQUARES_PER_SEC * (self.fruit_timer / FREQUENCY):
-            print('going for fruit!!!!')
-            return FRUIT_POS
-        if self.state.cherry:
-            print('CHERRY TOO FAR', self.fruit_timer, manhattanDist(self.pacbot_pos, FRUIT_POS))
-        
         frightened_ghosts = [ghost for ghost in ghosts if ghost.state == LightState.GhostState.FRIGHTENED]
 
         if len(frightened_ghosts) != 0:
@@ -147,6 +148,10 @@ class AIModule(rm.ProtoModule):
                 return goalPos
             print('GHOSTS TOO FAR', self.ghost_timer, goalPos)
         
+        if self.state.cherry and manhattanDist(self.pacbot_pos, FRUIT_POS) <= SQUARES_PER_SEC * (self.fruit_timer / FREQUENCY):
+            print('going for fruit!!!!')
+            return FRUIT_POS
+        
         powerPos = [(1, 7), (1, 27), (26, 7), (26, 27)]
         closestPower = []
         for index in range(len(powerPos) -1, -1, -1):
@@ -159,7 +164,10 @@ class AIModule(rm.ProtoModule):
         if len(closestPower) != 0:
             goalPos = powerPos[np.argmin(closestPower)]
             print(f'going for power pellet at {goalPos}')
-            return goalPos
+            # HERE IS THE LINE FOR STALLING
+            if self._should_eat_pellet(goalPos, ghosts):
+                return goalPos
+            return None
         
         ghostDists = []
         # only avoiding ghosts that aren't in the ghost zone (otherwise path 
@@ -178,9 +186,41 @@ class AIModule(rm.ProtoModule):
             return goalPos
         else:
             closestGhost = ghosts[np.argmin(ghostDists)]
-            goalPos = (closestGhost.x, closestGhost.y)
-            print(f'avoiding ghost at {goalPos}')
+            print(f'avoiding ghost at {(closestGhost.x, closestGhost.y)}')
+            goalPos = self._get_mirror_pos((closestGhost.x, closestGhost.y))
+            print(f'mirror pos {goalPos}')
             return goalPos
+
+    def _should_eat_pellet(self, pellet_pos, ghosts):
+        if manhattanDist(self.pacbot_pos, pellet_pos) > 1:
+            print('FAR FROM PELLET')
+            return True
+
+        counter = 0
+        for ghost in ghosts:
+            dist = manhattanDist(self.pacbot_pos, (ghost.x, ghost.y))
+            if dist <= 3:
+                print('GHOST TOO CLOSE')
+                return True
+            if dist <= SQUARES_PER_SEC * (FRIGHTENED_TIME / FREQUENCY) / 4:
+                counter += 1
+            if counter >= 2:
+                print('GHOSTS CLOSE ENOUGH')
+                return True
+
+        return False
+
+     # TODO: maybe do an actual BFS for this??? if ur feeling cute
+    def _get_mirror_pos(self, pos):
+        if pos[0] < GRID_WIDTH / 2:
+            x = GRID_WIDTH - 2
+        else:
+            x = 1
+        if pos[1] < GRID_HEIGHT / 2:
+            y = GRID_HEIGHT - 2
+        else:
+            y = 1
+        return (x, y)
 
     def _pick_direction(self):
         

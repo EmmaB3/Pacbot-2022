@@ -136,8 +136,29 @@ def whichWayAStar(grid, pacpos, goalPos, ghosts, avoid):
     # go to the dot at goalX, goalY
     if path is None:  # in theory, this should never happen
         print(f'No path found! Pacpos {pacpos}, goalpos {goalPos}, ghosts {ghosts}')
+
     print("path",  path)
     print("Next move is to: " + str(path[1]))
+    if path[1] in ghostPos:
+        # Our next move is directly into a ghost
+        valid_directions = {'w','a','s','d'}
+        if path[1][0] > x:  # we have to go right
+            valid_directions.remove('d')
+        elif path[1][0] < x:  # we have to go left
+            valid_directions.remove('a')
+        elif path[1][1] > y:  # we have to go up
+            valid_directions.remove('w')
+        elif path[1][1] < y:
+            valid_directions.remove('s')
+        for d in valid_directions:
+            if d == 'w' and grid[x][y+1] not in [I, n]:
+                return 'w'
+            if d == 'a' and grid[x - 1][y] not in [I, n]:
+                return 'a'
+            if d == 's' and grid[x][y - 1] not in [I, n]:
+                return 's'
+            if d == 'd' and grid[x + 1][y] not in [I, n]:
+                return 'd'
 
     if path[1][0] > x:  # we have to go right
         return 'd'
@@ -213,7 +234,6 @@ def findClosestAStar(grid, x, y, goalPos, ghostPos, avoid):
         if node.pos == goalPos:
             print("Done!")
             print("Num states visited:", len(visited))
-            # print("Path steps:")
             return generateSolution(node, start)
         # Generating neighbors of the current state and adding them to the PQ
         # if not visited already
