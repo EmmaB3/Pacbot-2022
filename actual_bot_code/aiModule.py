@@ -26,6 +26,8 @@ GHOST_AVOID_RANGE = 6.0
 # TODO: should be an actual experimentally- determined robot speed estimate
 SQUARES_PER_SEC = SPEED * FREQUENCY
 
+BASE_TICK_COUNTER = 1
+
 # times are measured in ticks (calls of the planning function), not seconds.
 #   could change this later (& just decrement by 1/FREQUENCY instead of 1
 #   during each tick)
@@ -57,6 +59,8 @@ class AIModule(rm.ProtoModule):
         self.fruit_timer = 0
         self.ghost_timer = 0
         self.prev_fruit_val = False
+        self.needs_to_plan = True
+        self.tick_counter = BASE_TICK_COUNTER
 
     def _move_if_valid_dir(self, direction, x, y):
         if direction == right and grid[x + 1][y] not in [I, n]:
@@ -83,7 +87,12 @@ class AIModule(rm.ProtoModule):
         # This module only sends data, so we ignore incoming messages
         if msg_type == MsgType.LIGHT_STATE:
             self.state = msg
+            old_pos = self.pacbot_pos
             self.pacbot_pos = (msg.pacman.x, msg.pacman.y)
+            if old_pos != self.pacbot_pos:
+                self.needs_to_plan = True
+                self.tick_counter = BASE_TICK_COUNTER
+            print("message position:", msg.pacman.x, msg.pacman.y)
             if self.state.lives != self.lives:
                 self.lives = self.state.lives
                 self.pacbot_pos = [pacbot_starting_pos[0], pacbot_starting_pos[1]]
@@ -92,7 +101,12 @@ class AIModule(rm.ProtoModule):
     def tick(self):
         msg = PacmanDirection()
 
-        if self.state.mode != LightState.GameMode.PAUSED:
+        if self.tick_counter > 0:
+            self.tick_counter -= 1
+            if self.tick_counter > 0:
+                return
+
+        if self.state.mode != LightState.GameMode.PAUSED and self.needs_to_plan:
 
             # decrement timers
             if self.ghost_timer > 0:
@@ -123,14 +137,16 @@ class AIModule(rm.ProtoModule):
             if goal_pos is not None:
                 out_char = smarterInput.whichWayAStar(self.grid, self.pacbot_pos, 
                                                         goal_pos, non_scared_ghosts, False)
+                self.needs_to_plan = False
             else:
                 out_char = 'q'
             print('OUT CHAR: ' + out_char)
             msg.direction = char_to_direction[out_char]
-        else:
+            self.write(msg.SerializeToString(), MsgType.PACMAN_DIRECTION)
+        elif self.needs_to_plan:
             msg.direction = PacmanDirection.STOP
 
-        self.write(msg.SerializeToString(), MsgType.PACMAN_DIRECTION)
+            self.write(msg.SerializeToString(), MsgType.PACMAN_DIRECTION)
 
     # returns goal pos
     def _pick_goal(self, ghosts, grid):

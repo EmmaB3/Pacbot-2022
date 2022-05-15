@@ -10,25 +10,29 @@ from distanceSensor import DistanceSensor
 from gpiozero import PhaseEnableMotor
 from messages import MsgType, message_buffers, PacmanDirection, GyroYaw
 from variables import *
+from ports import TcaPort
 
 ADDRESS = os.environ.get("LOCAL_ADDRESS","localhost")
 PORT = os.environ.get("LOCAL_PORT", 11295)
 
 FREQUENCY = 100
 
-TURN_LEFT_YAW = 7.5
-TURN_RIGHT_YAW = 7.5
-TURN_AROUND_YAW = 16.0
+TURN_LEFT_YAW = 8
+TURN_RIGHT_YAW = 8
+TURN_AROUND_YAW = 16.5
 
 YAW_ALLOWANCE = 0.01
 
-RIGHT_MOTOR_OFFSET = 0.0
+RIGHT_MOTOR_OFFSET =  -0.07
 
 YAW_MULTIPLIER = 0.15
 
-TICK_WAIT = 5
+TICK_WAIT = 7
 
-BASE_SPEED = 0.6
+BASE_SPEED = 0.65
+
+MAX_STALL = 200
+MAX_REVERSE = 100
 
 # distance sensor indices
 CENTER = 0
@@ -40,6 +44,7 @@ class DriveMode(Enum):
     STOPPED = 0
     TURNING = 1
     STRAIGHT = 2
+    CORRECT = 3
 
 
 class TurnDirection(Enum):
@@ -52,7 +57,7 @@ class TurnDirection(Enum):
 #   based off gyro value when turning? maybe
 class MotorModule(rm.ProtoModule):
     def __init__(self, addr, port):
-        self.subscriptions = [MsgType.PACMAN_DIRECTION, MsgType.GYRO_YAW]
+        self.subscriptions = [MsgType.PACMAN_DIRECTION, MsgType.GYRO_YAW, MsgType.LIGHT_STATE]
         super().__init__(addr, port, message_buffers, MsgType, FREQUENCY, self.subscriptions)
         self.state = None
         self.current_direction = PacmanDirection.D
@@ -61,7 +66,11 @@ class MotorModule(rm.ProtoModule):
         self.turn_direction = None
         self.tick_counter = 0
         self._yaw = 0
-        
+        self.ticks_since_start = 0
+        self.stall_counter = 0
+        self.prev_tick_pos = False
+        self.reverse_counter = 0
+        self.pacbot_pos = (0, 0)
         # set up pid
         self.pid = PID(0.1, 0.01, 0.005, setpoint=0, sample_time=1.0/FREQUENCY)
         self.pid.output_limits = (-0.15, 0.15)
@@ -84,9 +93,9 @@ class MotorModule(rm.ProtoModule):
                 print([hex(address) for address in addresses if address != 0x70])
                 self.tca[channel].unlock()
 
-        self.left_dist = DistanceSensor('left', self.tca[0], self._veer_right, 40)
-        self.right_dist = DistanceSensor('right', self.tca[2], self._veer_left, 40)
-        self.front_dist = DistanceSensor('forward', self.tca[1], self._stop, 60)
+        self.front_dist = DistanceSensor('left', self.tca[TcaPort.FRONT_DIST], self._stop, 55)
+        self.right_dist = DistanceSensor('right', self.tca[TcaPort.RIGHT_DIST], self._veer_right, 30)
+        self.left_dist = DistanceSensor('forward', self.tca[TcaPort.LEFT_DIST], self._veer_left, 30)
         # self.dist_sensors = [
         #     DistanceSensor('forward', tca[1], self._stop, 70),
         #     DistanceSensor('left', tca[0], self._veer_right, 40),
@@ -103,8 +112,15 @@ class MotorModule(rm.ProtoModule):
             print(f'got direction {msg}')
         elif msg_type == MsgType.GYRO_YAW:
             self._yaw = msg.yaw
+        elif msg_type == MsgType.LIGHT_STATE:
+             self.pacbot_pos = (msg.pacman.x, msg.pacman.y)
 
     def tick(self):
+        if self.desired_direction != PacmanDirection.STOP and self.pacbot_pos == self.prev_tick_pos:
+            self.stall_counter += 1
+        else:
+            self.stall_counter = 0
+        self.prev_tick_pos = self.pacbot_pos
         # print(f'yaw {self.yaw}')
         # if self.mode != DriveMode.STOPPED:
         #     done = self._turn_right(5.69)
@@ -113,6 +129,7 @@ class MotorModule(rm.ProtoModule):
         #         self.mode = DriveMode.STOPPED
         # if told to stop, stop
         # print(f'desired: {self.desired_direction} current: {self.current_direction}')
+        self.ticks_since_start += 1
         if self.tick_counter > 0:
             self.tick_counter -= 1
 
@@ -121,12 +138,19 @@ class MotorModule(rm.ProtoModule):
             if self.mode != DriveMode.STOPPED:
                 self.mode = DriveMode.STOPPED
                 self._stop()
+        elif self.stall_counter > MAX_STALL:
+            self.mode = DriveMode.CORRECT
         elif self.current_direction != self.desired_direction:
             self.mode = DriveMode.TURNING
         else:
             self.mode = DriveMode.STRAIGHT
 
-        if self.mode == DriveMode.TURNING:
+        if self.mode == DriveMode.CORRECT:
+            self.reverse_counter += 1
+            self._drive(- BASE_SPEED, - (BASE_SPEED + RIGHT_MOTOR_OFFSET))
+            if self.reverse_counter >= MAX_REVERSE:
+                 self.stall_counter = 0
+        elif self.mode == DriveMode.TURNING:
             print(f'desired: {self.desired_direction}, current: {self.current_direction}')
             # starting turn
             if self.turn_direction is None:
@@ -222,6 +246,9 @@ class MotorModule(rm.ProtoModule):
         self._drive(left_speed, right_speed)
     
     def _drive(self, left_speed, right_speed):
+        # if self.ticks_since_start < 10:
+        #     left_speed = left_speed * 1 / (ticks_since_start + 1.0)
+        #     right_speed = right_speed * (1 / (ticks_since_start + 1.0))
         if left_speed < 0:
             self.left_motor.backward(min(1.0, -left_speed))
         else:
@@ -255,6 +282,7 @@ class MotorModule(rm.ProtoModule):
         self._drive(0.4, 0.3 + RIGHT_MOTOR_OFFSET)
 
     def _stop(self):
+        self.ticks_since_start = 0
         self.left_motor.stop()
         self.right_motor.stop()
 
@@ -270,9 +298,9 @@ class MotorModule(rm.ProtoModule):
         print(f'yaw: {self.yaw}, target: {target}, speed: {turn_speed}')
         if abs(self.yaw) < target:
             if left:
-                self._drive(-turn_speed, turn_speed)
+                self._drive(-turn_speed, turn_speed + RIGHT_MOTOR_OFFSET)
             else:
-                self._drive(turn_speed, -turn_speed)
+                self._drive(turn_speed, -turn_speed - RIGHT_MOTOR_OFFSET)
             return False
         else:
             return True

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+from actual_bot_code.ports import TcaPort
 from motorModule import MotorModule
 from distanceSensor import DistanceSensor
 
@@ -11,7 +12,13 @@ class ReversibleMotorModule(MotorModule):
     def __init__(self, addr, port):
         super().__init__(addr, port)
         self.reversed = False
-        self.back_dist = DistanceSensor('left', self.tca[0], self._stop, 40)
+        self.back_dist = DistanceSensor('left', self.tca[TcaPort.BACK_DIST], self._stop, 40)
+    
+    @property
+    def yaw(self):
+        if self.reversed:
+            return -1 * self._yaw
+        return self._yaw
 
     def _turn_around(self):
         print('overridden turning around')
@@ -24,12 +31,6 @@ class ReversibleMotorModule(MotorModule):
         self.back_dist = temp
     
         return True
-
-    @property
-    def yaw(self):
-        if self.reversed:
-            return -1 * self._yaw
-        return self._yaw
 
     def _drive(self, left_speed, right_speed):
         if self.reversed:
@@ -47,6 +48,7 @@ class ReversibleMotorModule(MotorModule):
         if self.reversed:
            return super()._turn_right()
         return super()._turn_left()
+
 
 def main():
     module = ReversibleMotorModule(ADDRESS, PORT)
