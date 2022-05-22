@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, sys
+import os
 import robomodules as rm
 from messages import MsgType, message_buffers, PacmanDirection, LightState
 from Node import manhattanDist
@@ -13,7 +13,6 @@ import smarterInput
 ##############################
 
 ADDRESS = os.environ.get("BIND_ADDRESS", "localhost")    # address of game engine server
-# ADDRESS = os.environ.get("BIND_ADDRESS","192.168.0.196")    # address of game engine server (ryan's)
 PORT = os.environ.get("BIND_PORT", 11295)               # port game engine server is listening on
 
 SPEED = 1.0

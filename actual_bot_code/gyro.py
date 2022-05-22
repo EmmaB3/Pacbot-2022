@@ -1,7 +1,6 @@
 import smbus
 import time
 
-
 # some MPU6050 Registers and their Address
 PWR_MGMT_1   = 0x6B
 SMPLRT_DIV   = 0x19
