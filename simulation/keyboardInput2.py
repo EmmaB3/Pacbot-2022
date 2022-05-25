@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 
+# NAME: keyboardInput2.py
+# PURPOSE: adapted keyboard input module (for movement in simulation using 
+#          w/a/s/d) that moves pacman only when key is pressed (instead of 
+#          continuously moving in current direction 1 square per tick)
+# AUTHORS: Emma Bethel
+
 import os, sys, curses
 import robomodules as rm
 from messages import *

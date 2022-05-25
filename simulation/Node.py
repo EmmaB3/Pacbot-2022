@@ -1,3 +1,7 @@
+# NAME: Node.py
+# PURPOSE: search space node definition (for use in A*)
+# AUTHORS: Rob Pitkin, Emma Bethel, Ryan McFarlane
+
 from pacbot.variables import *
 import numpy as np
 
@@ -8,16 +12,16 @@ def manhattanDist(currPos, goalPos) -> float:
 
 # Class definition of a node in the search space
 class Node:
-    def __init__(self, grid, pos, goalPos, cost, prev, ghostPos, avoid):
-        self.grid = grid
-        self.pos = pos
-        self.goalPos = goalPos
-        self.cost = cost
-        self.neighbors = []
-        self.prev = prev
-        self.ghostPos = ghostPos
-        self.avoid = avoid
-        self.state = pos
+    def __init__(self, grid, pos, goalPos, cost, prev, ghostPos, avoid=False):
+        self.grid = grid  # current state of the pacman grid
+        self.pos = pos  # grid coordinate represented by node
+        self.goalPos = goalPos  # desired coordinates of pacman
+        self.cost = cost  # total cost of getting to node
+        self.neighbors = []  # possible nodes 1 step further in path
+        self.prev = prev  # previous node in path
+        self.ghostPos = ghostPos  # list of positions of non-frightened ghosts
+        self.avoid = avoid  # depracated; conrols whether pacman should be 
+                            #   moving toward or away from goal
 
     # Overloading the greater than operator so that node comparisons can be made
     # Compares based on the cost of the state

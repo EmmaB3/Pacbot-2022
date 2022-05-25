@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+# NAME: mouseInput.py
+# PURPOSE: input module allowing simulation movement via mouse tracking
+# AUTHORS: Ryan McFarlane
+# NOTES: allows pacman to teleport/move through walls, which can confuse the 
+#        game engine. also assumes the simulation window is one the far left
+#        side of your screen.
+
 import os, sys, curses
 import robomodules as rm
 from messages import *
