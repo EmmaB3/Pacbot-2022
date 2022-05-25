@@ -1,3 +1,7 @@
+# NAME: variables.py
+# PURPOSE: various constants used in grid, messages, and elsewhere
+# AUTHORS: Harvard Undergraduate Robotics Club
+
 # Direction enums
 right = 0
 left = 1

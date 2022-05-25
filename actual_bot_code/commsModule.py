@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 
+# NAME: commsModule.py
+# PURPOSE: module for forwarding game state messages from remote robomodules
+#          server to local one
+# AUTHORS: Harvard Undergraduate Robotics Club
+# NOTES: yes I did shamelessly copy this straight off their github <3
+
 import os
 import robomodules as rm
 from messages import *

@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# NAME: motorModule.py
+# PURPOSE: module for driving the bot based on given direction commands
+# AUTHORS: Emma Bethel, Rob Pitkin, Ryan McFarlane
+
 import adafruit_tca9548a
 import board
 import os
@@ -17,21 +22,34 @@ PORT = os.environ.get("LOCAL_PORT", 11295)
 
 FREQUENCY = 100
 
+# target yaw values for turning 90/-90/180 degrees
 TURN_LEFT_YAW = 8
 TURN_RIGHT_YAW = 8
 TURN_AROUND_YAW = 16.5
 
+# maxumum discrepancy between actual yaw and target yaw upon completion of a 
+#   turn
 YAW_ALLOWANCE = 0.01
 
+# adjustment to right motor speed in order to drive both sides at same speed 
+#   (due to imperfect center of mass)
 RIGHT_MOTOR_OFFSET =  -0.07
 
+# multiplier for making turning speed proportional to distance from target yaw
 YAW_MULTIPLIER = 0.15
 
+# number of ticks to wait between completing a turn and continuing to drive
+#   forward (need some time to zero gyro)
 TICK_WAIT = 7
 
+# base speed at which robot will operate (when driving straight)
 BASE_SPEED = 0.65
 
+# maximum number of ticks robot can stay in one grid square while attempting to 
+#   drive forward before it is considered stalled/trapped and in need of 
+#   self-correction
 MAX_STALL = 200
+# maxium length (in ticks) of a self correction attempt
 MAX_REVERSE = 100
 
 # distance sensor indices
@@ -96,11 +114,7 @@ class MotorModule(rm.ProtoModule):
         self.front_dist = DistanceSensor('left', self.tca[TcaPort.FRONT_DIST], self._stop, 55)
         self.right_dist = DistanceSensor('right', self.tca[TcaPort.RIGHT_DIST], self._veer_right, 30)
         self.left_dist = DistanceSensor('forward', self.tca[TcaPort.LEFT_DIST], self._veer_left, 30)
-        # self.dist_sensors = [
-        #     DistanceSensor('forward', tca[1], self._stop, 70),
-        #     DistanceSensor('left', tca[0], self._veer_right, 40),
-        #     DistanceSensor('right', tca[2], self._veer_left, 40)
-        # ]
+        self.dist_sensors = [self.left_dist, self.front_dist, self.right_dist]
 
     @property
     def yaw(self):
@@ -121,14 +135,7 @@ class MotorModule(rm.ProtoModule):
         else:
             self.stall_counter = 0
         self.prev_tick_pos = self.pacbot_pos
-        # print(f'yaw {self.yaw}')
-        # if self.mode != DriveMode.STOPPED:
-        #     done = self._turn_right(5.69)
-        #     if done:
-        #         self._stop()
-        #         self.mode = DriveMode.STOPPED
-        # if told to stop, stop
-        # print(f'desired: {self.desired_direction} current: {self.current_direction}')
+
         self.ticks_since_start += 1
         if self.tick_counter > 0:
             self.tick_counter -= 1
@@ -175,8 +182,6 @@ class MotorModule(rm.ProtoModule):
                 self._stop()
                 self.current_direction = self.desired_direction
                 self.turn_direction = None
-                # self._stop() # TEMP
-                # self.mode = DriveMode.STOPPED # TEMP
 
         elif self.mode == DriveMode.STRAIGHT:
             if self.tick_counter == 0 and not self.front_dist.is_too_close():
@@ -188,17 +193,25 @@ class MotorModule(rm.ProtoModule):
         else:
             self.desired_direction = PacmanDirection.STOP
 
+    # PURPOSE: zeroes the stored gyro value (both locally and in gyro module)
+    # PARAMETERS: N/A
+    # RETURNS: N/A
+    # NOTE: the zeroing in the gyro module is done by sending a message over 
+    #       the local robotmodules server, and thus will not be instantaneous
     def _zero_gyro(self):
         msg = GyroYaw()
         msg.yaw = 0
         self._yaw = 0
         self.write(msg.SerializeToString(), MsgType.GYRO_YAW)
 
-    # returns turn direction (enum value)
+    # PURPOSE: decides neccessary direction to turn (left, right, or 180 
+    #          degrees) in order to get robot from current direction to desired 
+    #          one
+    # PARAMETERS: N/A
+    # RETURNS: the desired TurnDirection (enum value)
     def _pick_turn_direction(self):
-        # warning: quirky math shit ahead (basically i'm using the fact that 
-        #   the directions are in an enum, w/ values 0 through 4, to inform the 
-        #   choice of direction to turn)
+        # yes i am doing arithmetic on the raw integer values of enums. no i 
+        #   will not apologize <3
         offset = self.desired_direction - self.current_direction
         print(f'PICK TURN DIRECTION {offset}')
         if abs(offset) == 2:
@@ -210,6 +223,10 @@ class MotorModule(rm.ProtoModule):
         else:  # theoretically this should not happen
             return None
 
+    # PURPOSE: drives robot forward in the current direction, using both gyro 
+    #          and distance sensors to stay straight and avoid walls
+    # PARAMETERS: N/A
+    # RETURNS: N/A
     def _drive_straight(self):
         print(f'left dist sensor {self.left_dist.range}, right dist sensor {self.right_dist.range}')
         if self.left_dist.is_too_close():
@@ -222,10 +239,14 @@ class MotorModule(rm.ProtoModule):
             print('driving straight with gyro')
             self._drive_straight_gyro()
 
+    # PURPOSE: drives robot forward while keeping yaw (from gyro) as close to
+    #          zero as possible
+    # PARAMETERS: N/A
+    # RETURNS: N/A
     def _drive_straight_gyro(self):
         left_speed = BASE_SPEED
         right_speed = BASE_SPEED + RIGHT_MOTOR_OFFSET
-        # self.yaw += (1.0 / FREQUENCY) * self.gyro.value
+
         print(f'yaw: {self.yaw}')
         motor_speedup = min(0.15, YAW_MULTIPLIER * (abs(self.yaw)))
         # motor_speedup = abs(self.pid(self.yaw))
@@ -245,6 +266,15 @@ class MotorModule(rm.ProtoModule):
         print(f'left speed: {left_speed}, right speed: {right_speed}')
         self._drive(left_speed, right_speed)
     
+    # PURPOSE: drives robot at given speed
+    # PARAMETERS: left_speed - the speed for the left wheel. should be in range 
+    #                          [-1.0, 1.0] where negative means backward, 
+    #                          positive forward
+    #             right_speed - the speed for the right wheel. same range as 
+    #                           left.
+    # RETURNS: N/A
+    # NOTE: if left or right speed < -1 or > 1, it will be capped at the 
+    #       value corresponding to its sign
     def _drive(self, left_speed, right_speed):
         # if self.ticks_since_start < 10:
         #     left_speed = left_speed * 1 / (ticks_since_start + 1.0)
@@ -258,42 +288,35 @@ class MotorModule(rm.ProtoModule):
         else:
             self.right_motor.forward(min(1.0, right_speed))
 
-    # def _drive_straight_dist_sensors(self):
-    #     is_straight = True  # homophobia
-    #     for sensor in self.dist_sensors:
-    #         print(f'{sensor} sensor value: {sensor.range}')
-    #         if sensor.is_too_close():
-    #             print(f'{sensor} sensor too close!')
-    #             sensor.action()
-    #             is_straight = False
-    #             break
-    #         else:
-    #             print(f'no action needed for {sensor} sensor')
-
-    #     if is_straight:
-    #         self._drive_forward(0.3)
-
+    # PURPOSE: drives robot away from an obstacle to its left
+    # PARAMETERS: N/A
+    # RETURNS: N/A
     def _veer_left(self):
         print('veering left')
         self._drive(0.3 , 0.4 + RIGHT_MOTOR_OFFSET)
 
+    # PURPOSE: drives robot away from an obstacle to its right
+    # PARAMETERS: N/A
+    # RETURNS: N/A
     def _veer_right(self):
         print('veering right')
         self._drive(0.4, 0.3 + RIGHT_MOTOR_OFFSET)
 
+    # PURPOSE: stops robot driving
+    # PARAMETERS: N/A
+    # RETURNS: N/A
     def _stop(self):
         self.ticks_since_start = 0
         self.left_motor.stop()
         self.right_motor.stop()
 
-    # def _drive_forward(self, speed):
-    #     print(f'driving forward at speed {speed}')
-    #     self.left_motor.forward(speed)
-    #     self.right_motor.forward(speed)
-
-    # returns whether or not it's done turning
+    # PURPOSE: turns robot in a desired direction until it reaches a desired 
+    #          yaw value
+    # PARAMETERS: target - desired yaw value for robot to turn to
+    #             left - boolean; True if robot should turn left 
+    #                    (counterclockwise), False otherwise
+    # RETURNS: True if robot has reached desired yaw value, False otherwise
     def _turn(self, target, left):
-        # self.yaw += (1.0 / FREQUENCY) * self.gyro.value
         turn_speed = 0.1 + min((target - abs(self.yaw)) * 0.25, 0.3)
         print(f'yaw: {self.yaw}, target: {target}, speed: {turn_speed}')
         if abs(self.yaw) < target:
@@ -305,28 +328,50 @@ class MotorModule(rm.ProtoModule):
         else:
             return True
 
-    # returns whether or not it's done turning
+    # PURPOSE: turns robot 90 degrees to the right (clockwise)
+    # PARAMETERS: N/A
+    # RETURNS: True if robot has reached desired yaw value, False otherwise
     def _turn_right(self):
         print('turning right')
         return self._turn(TURN_RIGHT_YAW, False)
 
-    # returns whether or not it's done turning
+    # PURPOSE: turns robot 90 degrees to the left (counterclockwise)
+    # PARAMETERS: N/A
+    # RETURNS: True if robot has reached desired yaw value, False otherwise
     def _turn_left(self):
         print('turning left')
         return self._turn(TURN_LEFT_YAW, True)
 
-    # returns whether or not it's done turning
+    # PURPOSE: turns robot 180 degrees to the left (counterclockwise)
+    # PARAMETERS: N/A
+    # RETURNS: True if robot has reached desired yaw value, False otherwise
     def _turn_around(self):
         print('turning around')
         return self._turn(TURN_AROUND_YAW, True)
+
+    # PURPOSE: depracated; drives robot forward while veering away from side 
+    #          walls using distance sensors.
+    # PARAMETERS: N/A
+    # RETURNS: N/A
+    def _drive_straight_dist_sensors(self):
+        is_straight = True  # homophobia
+        for sensor in self.dist_sensors:
+            print(f'{sensor} sensor value: {sensor.range}')
+            if sensor.is_too_close():
+                print(f'{sensor} sensor too close!')
+                sensor.action()
+                is_straight = False
+                break
+            else:
+                print(f'no action needed for {sensor} sensor')
+
+        if is_straight:
+            self._drive_forward(0.3)
 
 
 def main():
     module = MotorModule(ADDRESS, PORT)
     module.run()
-    # while True:
-    #     print(f'left: {module.dist_sensors[LEFT].range} right: {module.dist_sensors[RIGHT].range}')
-    #     time.sleep(0.1)
 
 
 if __name__ == "__main__":

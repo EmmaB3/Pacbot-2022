@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+
+# NAME: gyroModule.py
+# PURPOSE: module for continuously calculating, storing, and sending to other 
+#          modules the current angular position of the bot
+# AUTHORS: Emma Bethel, Ryan McFarlane
+
 import os
 from messages.gyroYaw_pb2 import GyroYaw
 import robomodules as rm
@@ -26,12 +32,13 @@ class GyroModule(rm.ProtoModule):
                 self.yaw = msg.yaw
     
     def tick(self):
+        # update stored yaw based on new angular velocity (Euler's method)
         diff = self.gyro.value * (1.0 / FREQUENCY)
         self.yaw += diff
 
+        # send out new yaw as a GYRO_YAW message
         msg = GyroYaw()
         msg.yaw = self.yaw
-
         self.write(msg.SerializeToString(), MsgType.GYRO_YAW)
 
 

@@ -1,3 +1,7 @@
+# NAME: grid.py
+# PURPOSE: starting state of the pacman grid
+# AUTHORS: Harvard Undergraduate Robotics Club
+
 from variables import *
 
 # Grid enums

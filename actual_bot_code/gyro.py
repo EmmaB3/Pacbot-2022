@@ -1,3 +1,7 @@
+# NAME: gyro.py
+# PURPOSE: handling low level distance gyro reading/control
+# AUTHORS: Emma Bethel, Ryan McFarlane
+
 import smbus
 import time
 
@@ -18,6 +22,7 @@ SCALE_FACTOR = 131.0
 
 
 class Gyro:
+
     def __init__(self):
         self.bus = smbus.SMBus(1)
         time.sleep(0.5)
@@ -26,6 +31,16 @@ class Gyro:
         init_gyro_z = self._read_raw_data(GYRO_ZOUT_H) 
         self.init_Gz = init_gyro_z / SCALE_FACTOR
 
+    # the current angular velocity about the z axis (supposedly in degrees,
+    #   but... it's not)
+    @property
+    def value(self):
+        Gz = self._read_raw_data(GYRO_ZOUT_H) / SCALE_FACTOR
+        return Gz - self.init_Gz
+
+    # PURPOSE: some sort of setup stuff? i stole this from Ryan's code <3
+    # PARAMETERS: N/A
+    # RETURNS: N/A
     def _MPU_Init(self):
         #write to sample rate register
         self.bus.write_byte_data(self.Device_Address, SMPLRT_DIV, 7)
@@ -42,6 +57,9 @@ class Gyro:
         #Write to interrupt enable register
         self.bus.write_byte_data(self.Device_Address, INT_ENABLE, 1)
     
+    # PURPOSE: reading current value of a given register on the gyro
+    # PARAMETERS: addr - address of the MPU6050 Register to read from? I think?
+    # RETURNS: the value stored at the given address
     def _read_raw_data(self, addr):
         #Accelero and Gyro value are 16-bit
         high = self.bus.read_byte_data(self.Device_Address, addr)
@@ -54,8 +72,3 @@ class Gyro:
         if(value > 32768):
                 value = value - 65536
         return value
-    
-    @property
-    def value(self):
-        Gz = self._read_raw_data(GYRO_ZOUT_H) / SCALE_FACTOR
-        return Gz - self.init_Gz

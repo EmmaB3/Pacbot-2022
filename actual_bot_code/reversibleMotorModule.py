@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+
+# NAME: reversibleMotorModule.py
+# PURPOSE: the motor module, but for bots that have a back distance sensors as 
+#          well and can thus just flip their "front" direction instead of 
+#          making full 180 degree turns
+# AUTHORS: Emma Bethel, Rob Pitkin, Ryan McFarlane
+
 import os
 from actual_bot_code.ports import TcaPort
 from motorModule import MotorModule

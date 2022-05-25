@@ -1,7 +1,11 @@
+# NAME: smarterInput.py
+# PURPOSE: A* and BFS implementations for picking best direction for bot to go 
+#          in given current game state
+# AUTHORS: Ryan McFarlane, Rob Pitkin, Emma Bethel
+
 from variables import *
 import Node
 import HQ
-import numpy as np
 
 
 # Generates the path taken from the start node to the parameter node (typically
@@ -13,8 +17,6 @@ def generateSolution(node, start):
         node = node.prev
     solution.append(start.pos)
     solution.reverse()
-    # for i in range(len(solution) - 1, -1, -1):
-    #     print("Step " + str(len(solution) - i) + ":", solution[i])
 
     return solution
 
@@ -86,6 +88,13 @@ def whichWay(grid, pacpos):
         return 'a', grid
 
 
+# PURPOSE: uses BFS to determine the best direction for pacman to move in order 
+#          to reach nearest a power pellet
+# PARAMETERS: grid - the current state of the pacman grid, with already-eaten 
+#                    pellets marked accordingly
+#             pacpos - current coordinates of pacman
+# RETURNS: character representing desired direction (w, a, s, or d)
+# NOTE: does not handle ghost avoidance
 def whichWayBFS(grid, pacpos):
     x = pacpos[0]
     y = pacpos[1]
@@ -126,7 +135,18 @@ def whichWayBFS(grid, pacpos):
             return 's'
 
 
-def whichWayAStar(grid, pacpos, goalPos, ghosts, avoid):
+# PURPOSE: uses an A* search to determine the best direction for pacman to 
+#          move in in order to reach a given goal position
+# PARAMETERS: grid - the current state of the pacman grid, with already-eaten 
+#                    pellets marked accordingly
+#             pacpos - current coordinates of pacman
+#             goalPos - the goal coordinates (x,y)
+#             ghosts - list of all non-frightened ghosts (as GhostAgent 
+#                       objects) currently in the game
+#             avoid - depracated; was used in an earlier version of the regular 
+#                     pellet eating/ghost avoidance code
+# RETURNS: character representing desired direction (w, a, s, or d)
+def whichWayAStar(grid, pacpos, goalPos, ghosts, avoid=False):
     x = pacpos[0]
     y = pacpos[1]
     ghostPos = [(g.x,g.y) for g in ghosts]
@@ -189,6 +209,14 @@ def findClosest(grid, x, y):
     return closestDot
 
 
+# PURPOSE: uses breadth-first search to find shortest from pacman to nearest 
+#          pellet
+# PARAMETERS: grid - the current state of the pacman grid, with already-eaten 
+#                    pellets marked accordingly
+#             x - current x coordinate of pacman
+#             y - current y coordinate of pacman
+# RETURNS: tuple containing the (x,y) coordinate of that nearest pellet, as 
+#          well as the path (as a list of coordinates) to it
 def findClosestBFS(grid, x, y):
     childPath = []
     queue = []
@@ -212,9 +240,20 @@ def findClosestBFS(grid, x, y):
                 queue.append((childX, childY + 1, childPath.copy()))
 
 
-def findClosestAStar(grid, x, y, goalPos, ghostPos, avoid):
-    # print(goalPos)
-    # print(ghostPos)
+# PURPOSE: uses an A* search to find the lowest-cost path from pacman to 
+#          given goal position
+# PARAMETERS: grid - the current state of the pacman grid, with already-eaten 
+#                    pellets marked accordingly
+#             x - current x coordinate of pacman
+#             y - current y coordinate of pacman
+#             goalPos - the goal coordinates (x,y)
+#             ghostPos - list of coordinates (x,y) of all non-frightened ghosts 
+#                        currently in the game
+#             avoid - depracated; was used in an earlier version of the regular 
+#                     pellet eating/ghost avoidance code
+# RETURNS: the last node in the path (which can be traced back through the 
+#          entire path)
+def findClosestAStar(grid, x, y, goalPos, ghostPos, avoid=False):
     pq = HQ.HQ()
     start = Node.Node(grid, (x, y), goalPos, 0, None, ghostPos, avoid)
     pq.insert(start)
@@ -238,7 +277,7 @@ def findClosestAStar(grid, x, y, goalPos, ghostPos, avoid):
         # Generating neighbors of the current state and adding them to the PQ
         # if not visited already
         node.generateNeighbors()
-        # node.printNeighbors()
+
         for i in range(len(node.neighbors)):
             # Checking if the neighbor was visited or already in the PQ
             if node.neighbors[i].pos not in visited and (pq.contains(node.neighbors[i].pos) == -1):
@@ -250,4 +289,3 @@ def findClosestAStar(grid, x, y, goalPos, ghostPos, avoid):
                 currentCost = pq.q[index].cost
                 if newCost < currentCost:
                     pq.q[index] = node.neighbors[i]
-    # print("reached end")

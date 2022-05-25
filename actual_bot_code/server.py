@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# NAME: server.py
+# PURPOSE: running local, on-board robomodules server
+# AUTHORS: Harvard Undergraduate Robotics Club
+
 import robomodules
 import os
 from messages import MsgType
@@ -23,7 +27,7 @@ PORT = os.environ.get("LOCAL_PORT", 11295)
 def main():
     server = robomodules.Server(ADDRESS, PORT, MsgType)
     # server = robomodules.Server("192.168.0.196", PORT, MsgType)
-    #print("Address: " + str("192.168.0.196"))
+    # print("Address: " + str("192.168.0.196"))
     print("Address: " + str(ADDRESS))
     print("Port: " + str(PORT))
     server.run()

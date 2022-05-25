@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+# NAME: aiModule.py
+# PURPOSE: module for analyzing current game state and generating and sending 
+#          pacman movement commands accordingly
+# AUTHORS: Emma Bethel, Rob Pitkin, Ryan McFarlane
+
 import os
 import robomodules as rm
 from messages import MsgType, message_buffers, PacmanDirection, LightState
@@ -61,25 +66,6 @@ class AIModule(rm.ProtoModule):
         self.needs_to_plan = True
         self.tick_counter = BASE_TICK_COUNTER
 
-    def _move_if_valid_dir(self, direction, x, y):
-        if direction == right and grid[x + 1][y] not in [I, n]:
-            self.pacbot_pos[0] += 1
-            self.cur_dir = direction
-            return True
-        elif direction == left and grid[x - 1][y] not in [I, n]:
-            self.pacbot_pos[0] -= 1
-            self.cur_dir = direction
-            return True
-        elif direction == up and grid[x][y + 1] not in [I, n]:
-            self.pacbot_pos[1] += 1
-            self.cur_dir = direction
-            return True
-        elif direction == down and grid[x][y - 1] not in [I, n]:
-            self.pacbot_pos[1] -= 1
-            self.cur_dir = direction
-            return True
-        return False
-
 
     def msg_received(self, msg, msg_type):
         # This gets called whenever any message is received
@@ -96,7 +82,6 @@ class AIModule(rm.ProtoModule):
                 self.lives = self.state.lives
                 self.pacbot_pos = [pacbot_starting_pos[0], pacbot_starting_pos[1]]
 
-     # this function will get called in a loop with FREQUENCY frequency
     def tick(self):
         msg = PacmanDirection()
 
@@ -147,10 +132,18 @@ class AIModule(rm.ProtoModule):
 
             self.write(msg.SerializeToString(), MsgType.PACMAN_DIRECTION)
 
-    # returns goal pos
+    # PURPOSE: picks the ideal goal position for pacman to move toward based on 
+    #          current game state
+    # PARAMETERS: ghosts - list of all ghosts (as GhostAgent objects) currently 
+    #                      in the game (both frigtened and non-frightened)
+    #             grid - the current state of the grid, with all eaten pellets 
+    #                     marked accordingly
+    # RETURNS: a chosen goal coordinate (x,y) or NoneType if the pacman should 
+    #          halt
     def _pick_goal(self, ghosts, grid):
         frightened_ghosts = [ghost for ghost in ghosts if ghost.state == LightState.GhostState.FRIGHTENED]
 
+        # ghost eating mode
         if len(frightened_ghosts) != 0:
             frightenedPos = [(ghost.x, ghost.y) for ghost in frightened_ghosts if grid[ghost.x][ghost.y] != n]
             closestGhost = []
@@ -163,10 +156,12 @@ class AIModule(rm.ProtoModule):
                 return goalPos
             print('GHOSTS TOO FAR', self.ghost_timer, goalPos)
         
+        # fruit eating mode
         if self.state.cherry and manhattanDist(self.pacbot_pos, FRUIT_POS) <= SQUARES_PER_SEC * (self.fruit_timer / FREQUENCY):
             print('going for fruit!!!!')
             return FRUIT_POS
         
+        # power pellet eating mode
         powerPos = [(1, 7), (1, 27), (26, 7), (26, 27)]
         closestPower = []
         for index in range(len(powerPos) -1, -1, -1):
@@ -184,6 +179,7 @@ class AIModule(rm.ProtoModule):
                 return goalPos
             return None
         
+        # regular pellet eating mode
         ghostDists = []
         # only avoiding ghosts that aren't in the ghost zone (otherwise path 
         #   planning returns a NoneType)
@@ -206,6 +202,12 @@ class AIModule(rm.ProtoModule):
             print(f'mirror pos {goalPos}')
             return goalPos
 
+    # PURPOSE: determines whether pacman should continue moving toward a power 
+    #          pellet or stall near it to wait for ghosts
+    # PARAMETERS: pellet_pos - the coordinates of the pellet
+    #             ghosts - list of ghost objects that will become edible after 
+    #                      power pellet is eaten
+    # RETURNS: True to continue moving, False otherwise
     def _should_eat_pellet(self, pellet_pos, ghosts):
         if manhattanDist(self.pacbot_pos, pellet_pos) > 1:
             print('FAR FROM PELLET')
@@ -225,7 +227,10 @@ class AIModule(rm.ProtoModule):
 
         return False
 
-     # TODO: maybe do an actual BFS for this??? if ur feeling cute
+    # PURPOSE: calculates coordinate of furthest corner from a given grid 
+    #          position
+    # PARAMETERS: pos - the grid position as an (x,y) tuple
+    # RETURNS: the grid coordinates of the furthest corner (x,y)
     def _get_mirror_pos(self, pos):
         if pos[0] < GRID_WIDTH / 2:
             x = GRID_WIDTH - 2
@@ -236,60 +241,6 @@ class AIModule(rm.ProtoModule):
         else:
             y = 1
         return (x, y)
-
-    def _pick_direction(self):
-        
-        self.grid[self.pacbot_pos[0]][self.pacbot_pos[1]] = e
-        
-        ghosts = [self.state.red_ghost, self.state.pink_ghost, self.state.blue_ghost, self.state.orange_ghost]
-
-        frightened = [ghost for ghost in ghosts if ghost.state == LightState.FRIGHTENED]
-
-        if len(frightened) != 0:
-            self.timer -= 1 # do this
-            nonScared = [g for g in ghosts if not g.frightened_counter > 0]
-            # positions of all frightened ghosts which are NOT in the ghost
-            #   enclosure (path finder does not consider those as valid
-            #   squares!)
-            frightenedPos = [(ghost.x, ghost.y) for ghost in frightened if grid[ghost.x][ghost.y] != n]
-            closestGhost = []
-            for p in frightenedPos:
-                closestGhost.append(abs(self.pacbot_pos[0] - p[0]) + abs(self.pacbot_pos[1] - p[1]))
-            goalPos = frightenedPos[np.argmin(closestGhost)]
-        else:
-            nonScared = ghosts
-            powerPos = [(1, 7), (1, 27), (26, 7), (26, 27)]
-            closestPower = []
-            for index in range(len(powerPos) -1, -1, -1):
-                pos = powerPos[index]
-                if grid[pos[0]][pos[1]] != e:
-                    closestPower.append(abs(self.pacbot_pos[0] - pos[0]) + abs(self.pacbot_pos[1] - pos[1]))
-                else:
-                    powerPos.remove(pos)
-            closestPower.reverse()
-            
-            if len(closestPower) != 0:
-                goalPos = powerPos[np.argmin(closestPower)]
-            else:
-                ghostDists = []
-                for ghost in ghosts:
-                    ghostDists.append(manhattanDist(self.pacbot_pos, (ghost.x, ghost.y)))
-                if not self.avoid and min(ghostDists) < GHOST_AVOID_RANGE:
-                    self.avoid = True
-                if self.avoid and min(ghostDists) > GHOST_AVOID_RANGE + 1:
-                    self.avoid = False
-
-                if not self.avoid:
-                    goalPos = smarterInput.findClosestBFS(self.grid, *self.pacbot_pos)[:2]
-                    print("now going for regular pellet at", goalPos)
-                else:
-                    closestGhost = ghosts[np.argmin(ghostDists)]
-                    goalPos = (closestGhost.x, closestGhost.y)
-                    print(f'now avoiding ghost at {goalPos}')
-
-
-        return smarterInput.whichWayAStar(self.grid, self.pacbot_pos, 
-                                                        goalPos, nonScared, self.avoid)
 
 
 def main():

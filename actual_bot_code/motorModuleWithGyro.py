@@ -1,4 +1,16 @@
 #!/usr/bin/env python3
+
+# NAME: motorModuleWithGyro.py
+# PURPOSE: depracated version of motorModule that reads angular position data 
+#          directly from the gyro (instead of receiving yaw messages from 
+#          gyroModule)
+# AUTHORS: Emma Bethel, Ryan McFarlane
+# NOTES: not gonna bother to document/clean up most of this so. read at your 
+#        own risk (it's pretty much a combination of motorModule.py and 
+#        gyroModule.py, and was also not used in the final competition code; 
+#        something about having a lot of other stuff happen in the tick 
+#        function makes the integral approximation super inaccurate)
+
 import adafruit_tca9548a
 import board
 import os

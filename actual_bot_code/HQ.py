@@ -1,3 +1,7 @@
+# NAME: HQ.py
+# PURPOSE: priority queue implementation, for use in A* search
+# AUTHORS: Rob Pitkin
+
 import heapq
 
 

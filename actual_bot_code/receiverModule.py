@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
-
-
-# this is just for receiving and printing messages bc it's not working
+# NAME: recieverModule.py
+# PURPOSE: module for printing all PACMAN_DIRECTION messages sent over the 
+#          local robomodules server (for use in testing/troubleshooting)
+# AUTHORS: Emma Bethel
+# NOTES: can be easily adapted to work for other message types
 
 import os
 import robomodules as rm
@@ -14,10 +16,10 @@ PORT = os.environ.get("LOCAL_PORT", 11295)
 
 FREQUENCY = 60
 
-# drive robot based on command line input
+
 class TestCommandModule(rm.ProtoModule):
     def __init__(self, addr, port):
-        self.subscriptions = [MsgType.PACMAN_DIRECTION]
+        self.subscriptions = [MsgType.PACMAN_DIRECTION]  # insert other message types here
         super().__init__(addr, port, message_buffers, MsgType, FREQUENCY, self.subscriptions)
         self.state = None
 

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# NAME: testCommandModule.py
+# PURPOSE: module for driving robot via keyboard input. for use in testing.
+# AUTHORS: Emma Bethel
+
 import os
 import robomodules as rm
 from variables import *
@@ -28,6 +32,10 @@ class TestCommandModule(rm.ProtoModule):
         print(f'sending: {new_msg.direction}')
         self.write(new_msg.SerializeToString(), MsgType.PACMAN_DIRECTION)
 
+    # PURPOSE: translates keyboard input (w/a/s/d/q) into pacman direction enum 
+    #          value
+    # PARAMETERS: N/A
+    # RETURNS: the enum value of the requested direction
     def _get_direction(self):
         print('enter robot direction (w/a/s/d/q):', end='')
         command = input().lower()
